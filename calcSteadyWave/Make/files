@@ -1,0 +1,4 @@
+calcSteadyWave.C
+steadyWave.C
+
+EXE = $(FOAM_USER_APPBIN)/calcSteadyWave

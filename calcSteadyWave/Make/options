@@ -1,0 +1,10 @@
+/* EXE_INC = */
+/* EXE_LIBS = */
+
+EXE_INC = \
+    -I$(GSL_DIR)/include
+
+EXE_LIBS = \
+    -L$(GSL_DIR)/lib \
+    -lgsl \
+    -lgslcblas

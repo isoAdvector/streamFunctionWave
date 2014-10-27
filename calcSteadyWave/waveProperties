@@ -1,0 +1,49 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM Extend Project: Open source CFD        |
+|  \\    /   O peration     | Version:  1.6-ext                               |
+|   \\  /    A nd           | Web:      www.extend-project.de                 |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "constant";
+    object      waveProperties;
+}
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+height          5;
+
+depth           50;
+
+period          10;
+
+direction       ( 1 0 0 );
+
+rampUpTime      0;
+
+u1or2       	0; 	//default = 0, not used if uType = 0
+
+uType      		2; 	//default = 2
+
+nModes          35; 	//default = 30
+
+nHeightSteps    20; 	//default = 20
+
+//rootTolerance	1e-7; 	//default = 1e-7
+
+//rootMaxIter	1000; 	//default = 1000
+
+//length		2; 	//Must be specified if uType = 0, else not used
+
+//seabedHeight	-0.3; 	//default = lowest point on patch
+
+//waveMakerPos	0; 	//default = backmost point on patch
+
+phase		 	0.75;	//default = 0.0 giving wave starting at crest, 0.5 gives wave starting at trough, 0.75 is suitable for starting without ramp up.
+
+// ************************************************************************* //
+
