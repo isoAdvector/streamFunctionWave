@@ -24,10 +24,6 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "steadyWave.H"
-//#include "IFstream.H"
-//#include "IOobject.H"
-//#include "dictionary.H"
-//#include "scalarField.H"
 #include "OFstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -46,9 +42,6 @@ H_(readScalar(waveDict.lookup("height"))),
 d_(readScalar(waveDict.lookup("depth"))),
 uType_(waveDict.lookupOrDefault<int>("uType",2)),
 nHsteps_(waveDict.lookupOrDefault<int>("nHeightSteps",20)),
-rootTolerance_(waveDict.lookupOrDefault<scalar>("rootTolerance",1e-7)),
-rootMaxIter_(waveDict.lookupOrDefault<int>("rootMaxIter",1000)),
-useGSL_(waveDict.lookupOrDefault<bool>("useGSL",false)),
 pi_(Foam::acos(-1.0)),
 g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 {
@@ -79,17 +72,12 @@ bool steadyWave::sameWave(const dictionary& waveDict)
 	scalar d(readScalar(waveDict.lookup("d")));
 	int N(readScalar(waveDict.lookup("N")));
 	int nHsteps(readScalar(waveDict.lookup("nHsteps")));
-	scalar rootTolerance(readScalar(waveDict.lookup("tolerance")));
-	unsigned int rootMaxIter(readInt(waveDict.lookup("maxIter")));
 	int uType(readInt(waveDict.lookup("uType")));
 
 	scalar prec(Foam::pow(10.0,1-scalar(IOstream::precision_)));
 		
 	sameWave = sameWave && (N == N_);
 	sameWave = sameWave && (nHsteps == nHsteps_);
-	sameWave = sameWave && (abs(rootTolerance - rootTolerance_) < prec);
-	sameWave = sameWave && (rootMaxIter == rootMaxIter_);
-	sameWave = sameWave && (useGSL_ == useGSL_);
 	sameWave = sameWave && (uType == uType_);
 	sameWave = sameWave && (mag(H/d - H_/d_) < prec);
 
@@ -166,14 +154,8 @@ void steadyWave::fenton()
 	
 	for (int ii=1; ii<=nHsteps_; ii++) 
 	{
-		if (useGSL_)
-		{
-			findRoots(x, ii*H_/nHsteps_/d_, lort);
-		}else
-		{
-			findRoot(x, ii*H_/nHsteps_/d_, lort);
-			Info << "Iteration " << ii << " of " << nHsteps_ << " with H/d = " << ii*H_/nHsteps_/d_ << " gave kd = " << x[2*N_+2] << endl;
-		}
+		findRoot(x, ii*H_/nHsteps_/d_, lort);
+		Info << "Iteration " << ii << " of " << nHsteps_ << " with H/d = " << ii*H_/nHsteps_/d_ << " gave kd = " << x[2*N_+2] << endl;
 	}
 
 	//Converting x vector into named variables
@@ -217,9 +199,6 @@ void steadyWave::fenton()
 
 void steadyWave::findRoot(scalarField& X, scalar h, scalar lort)
 {
-
-//	struct fentonParms p = { h, lort, u1or2_, uType_, N_};
-
 	scalar tol(1e-5); //HARDCODED TOLERANCE
 	scalar err(2*tol);
 	int nIter(0);
@@ -334,9 +313,6 @@ void steadyWave::writeDict(word outDictName)
 	outDict.add("d",d_,true);
 	outDict.add("N",N_,true);
 	outDict.add("nHsteps",nHsteps_,true);
-	outDict.add("maxIter",rootMaxIter_,true);
-	outDict.add("useGSL",useGSL_,true);
-	outDict.add("tolerance",rootTolerance_,true);
 	outDict.add("uType",uType_,true);
 	outDict.add("k",k_,true);
 	outDict.add("omega",omega_,true);
@@ -346,147 +322,14 @@ void steadyWave::writeDict(word outDictName)
 	outDict.add("B",B_,true);
 	outDict.add("E",E_,true);
 	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
-	outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
+	if (omega_ > 0)
+	{
+		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
+	}
 	outDict.add("c",omega_/k_,true);
 	outDict.write(OFstream(outDictName)(), false);
 
 }
-
-void steadyWave::findRoots(scalarField& X, scalar h, scalar lort)
-{
-
-//	Code adapted example from:
-//	http://www.gnu.org/software/gsl/manual/html_node/Example-programs-for-Multidimensional-Root-finding.html
-
-//	Info << "Enter findRoots" << endl;
-	const gsl_multiroot_fsolver_type *T;
-	gsl_multiroot_fsolver *s; 
-	
-	int status;
-	size_t iter = 0;
-
-	const size_t n = X.size();
-	struct fentonParms p = { h, lort, u1or2_, uType_, N_};
-	gsl_multiroot_function f = {&waveConditionVectorFunction, n, &p};
-
-	gsl_vector *x = gsl_vector_alloc (n);
-
-	forAll(X,ii)
-	{
-		gsl_vector_set (x, ii, X[ii]);
-	}
-	T = gsl_multiroot_fsolver_hybrid;
-	s = gsl_multiroot_fsolver_alloc (T, n);
-	gsl_multiroot_fsolver_set (s, &f, x);
-
-	do
-	 {
-	   iter++;
-	   status = gsl_multiroot_fsolver_iterate (s);
-
-	   if (status)   /* check if solver is stuck */
-		 break;
-
-		status = gsl_multiroot_test_residual (s->f, rootTolerance_);
-	 }
-	while (status == GSL_CONTINUE && iter < rootMaxIter_);
-
-	printf ("status = %s\n", gsl_strerror (status));
-
-	forAll(X,ii)
-	{
-		X[ii] = gsl_vector_get (s->x, ii);
-	}
-
-	gsl_multiroot_fsolver_free (s);
-	gsl_vector_free (x);
-}
-
-int steadyWave::waveConditionVectorFunction(const gsl_vector * x, void *params, gsl_vector * f)
-{
-//    Info << "Enter waveConditionVectorFunction" << endl;
-	//Reading parameters
-//	struct fentonParms *p = static_cast<struct fentonParms*>(params);
-	struct fentonParms * p = static_cast<struct fentonParms *>(params);
-
-	double h = (p->h);
-	double lort = (p->lort);
-	double u1or2 = (p->u1or2);
-	int uType = (p->uType);
-	int N = (p->N);
-
-//	Info << "h: " << h << ", lort: " << lort << ", u1or2: " << u1or2 << ", uType: " << uType << ", N: " << N << endl;
-
-//	Info << "Converting from x vector into named variables" << endl;
-	scalarField keta(N+1);
-    forAll(keta,ii)
-    {
-		keta[ii] = gsl_vector_get(x,ii);
-    }
-	scalarField B(N);
-    forAll(B,ii)
-    {
-		int jj = ii + N + 1;
-		B[ii] = gsl_vector_get(x,jj);
-    }
-	scalar u = gsl_vector_get(x,2*N+1); 
-	scalar kd = gsl_vector_get(x,2*N+2);
-	scalar q = gsl_vector_get(x,2*N+3);
-	scalar r = gsl_vector_get(x,2*N+4); 
-
-//	Info << "Computing wave conditions, N = " << N << endl;
-	scalarField kinBC(N+1); //Kinematic boundary condition, (3.7) in Fenton 1999
-	scalarField dynBC(N+1); //Dynamic boundary condition (3.8) in Fenton 1999
-	scalar U, V, kx, ke, PI(Foam::acos(-1.0));
-	int j;
-	scalar meanDepthEq = - (0.5/N)*(keta[0] + keta[N]) - kd; //Mean depth equation (3.9) in Fenton 1999
-	forAll(kinBC,ii)
-    {
-		kx = ii*PI/N;
-		ke = keta[ii];
-		kinBC[ii] = - u * ke + q;
-		dynBC[ii] = ke - r;
-		U = - u;
-		V = 0.0;
-		forAll(B,jj)
-		{
-			j = jj + 1;
-			kinBC[ii] += B[jj] * (Foam::sinh(j*ke) / Foam::cosh(j*kd)) * Foam::cos(j*kx);
-			U += j * B[jj] * (Foam::cosh(j*ke) / Foam::cosh(j*kd)) * Foam::cos(j*kx);
-			V += j * B[jj] * (Foam::sinh(j*ke) / Foam::cosh(j*kd)) * Foam::sin(j*kx);
-		}
-		dynBC[ii] += 0.5*Foam::pow(U,2.0) + 0.5*Foam::pow(V,2.0);
-		meanDepthEq += keta[ii]/N;
-    }
-	scalar waveHeightEq = keta[0] - keta[N] - kd*h; //Wave height equation (3.10) in Fenton 1999
-	
-	scalar lastEq = 0;
-	if (uType == 0) {
-		scalar l = lort;
-		lastEq = kd - 2.0*PI/l; // Relative wavelength equation (3.11) in Fenton 1999
-	}
-	else {
-		scalar t = lort;
-		if (uType == 1) {
-			lastEq = Foam::sqrt(kd)*u + kd*u1or2 - 2.0*PI/t; //Equation for mean current in laboratory frame (3.15) in Fenton 1999
-		}
-		else if (uType == 2) {
-			lastEq = q/Foam::sqrt(kd) + kd*u1or2 - 2.0*PI/t; //Equation for mass transport velocity (3.16) in Fenton 1999
-		}
-	}	
-
-//	Info << "Writing wave conditions into solution vector f" << endl;
-	forAll(kinBC,ii)
-    {
-		gsl_vector_set (f, ii, kinBC[ii]);
-		gsl_vector_set (f, ii + N + 1, dynBC[ii]);
-    }
-	gsl_vector_set (f, 2*N+2, meanDepthEq);
-	gsl_vector_set (f, 2*N+3, waveHeightEq);
-	gsl_vector_set (f, 2*N+4, lastEq);
-	return GSL_SUCCESS;
-}
-
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 } // End namespace Foam

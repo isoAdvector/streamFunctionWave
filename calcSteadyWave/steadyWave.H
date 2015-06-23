@@ -44,15 +44,7 @@ Author
 #ifndef steadyWave_H
 #define steadyWave_H
 
-//#include "IFstream.H"
-//#include "IOobject.H"
-//#include "dictionary.H"
-//#include "scalarField.H"
 #include "scalarMatrices.H"
-
-#include <gsl/gsl_vector.h>
-#include <gsl/gsl_multiroots.h>
-
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -85,12 +77,6 @@ class steadyWave
 				
 	//- Residual tolerance in multidimensional root finding 
 	scalar rootTolerance_;
-	
-	//- Max number of iteration in multidimensional root finding
-	unsigned int rootMaxIter_;
-	
-	//- Find roots using GSL root finding library - else use own method
-	bool useGSL_;
 
 	//- 3.1415...
 	scalar pi_;
@@ -113,25 +99,11 @@ class steadyWave
 	//- Bernoulli constant
 	scalar R_;
 		
-	void findRoots(scalarField&, scalar, scalar);
-	
-	static int waveConditionVectorFunction(const gsl_vector * x, void *params, gsl_vector * f);
-
 	void findRoot(scalarField& X, scalar h, scalar lort);
 
 	scalarField fun(const scalarField& X, scalar h, scalar lort);
 	
 	scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort);
-
-
-	struct fentonParms
-	{ 	
-		double h; 
-		double lort;
-		double u1or2;
-		int	uType;
-		int N;
-	};
 
 public:
 
