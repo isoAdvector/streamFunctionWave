@@ -22,7 +22,8 @@ boundaryField
 {
     left
     {
-        type            steadyWave;
+        type            fixedFluxPressure;
+//        type            steadyWave;
 	value		uniform 0;
     }
     right

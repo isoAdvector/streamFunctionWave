@@ -100,11 +100,11 @@ solvers
 
 PIMPLE
 {
-    momentumPredictor no;
+    momentumPredictor yes;
     nCorrectors     3;
     nNonOrthogonalCorrectors 0;
     nAlphaCorr      1;
-    nAlphaSubCycles 2;
+    nAlphaSubCycles 1;
     cAlpha          1;
 }
 

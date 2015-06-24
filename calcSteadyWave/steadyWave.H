@@ -53,7 +53,7 @@ namespace Foam
 
 class steadyWave
 {
-
+protected:
 	//- Number of Fourier modes
 	scalar N_;
 
@@ -76,7 +76,7 @@ class steadyWave
 	int nHsteps_;
 				
 	//- Residual tolerance in multidimensional root finding 
-	scalar rootTolerance_;
+//	scalar rootTolerance_;
 
 	//- 3.1415...
 	scalar pi_;
@@ -107,11 +107,15 @@ class steadyWave
 
 public:
 
+	steadyWave();
+
 	steadyWave(const dictionary&);
+	
+	void readParmsFromDict(const dictionary&);
 
 	bool sameWave(const dictionary&);
 
-	void fenton();
+	void calcCoeffs();
 
 	void writeDict(word);
 };

@@ -33,19 +33,39 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
+steadyWave::steadyWave()
+:
+N_(0),
+B_(0,0.0),
+E_(0,0.0),
+H_(0),
+d_(0),
+uType_(0),
+nHsteps_(0),
+pi_(0),
+g_(0),
+u1or2_(0),
+k_(0),
+omega_(0),
+uBar_(0),
+R_(0)
+{}
+
+
 steadyWave::steadyWave(const dictionary& waveDict)
 :
-N_(waveDict.lookupOrDefault<int>("nModes",30)),
+N_(waveDict.lookupOrDefault<int>("nModes",20)),
 B_(N_,0.0),
 E_(N_+1,0.0),
-H_(readScalar(waveDict.lookup("height"))),
-d_(readScalar(waveDict.lookup("depth"))),
+H_(waveDict.lookupOrDefault<scalar>("height",0.0)),
+d_(waveDict.lookupOrDefault<scalar>("depth",0.0)),
 uType_(waveDict.lookupOrDefault<int>("uType",2)),
 nHsteps_(waveDict.lookupOrDefault<int>("nHeightSteps",20)),
 pi_(Foam::acos(-1.0)),
 g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 {
-
+	readParmsFromDict(waveDict);
+/*
 	if ( uType_ == 0 )
 	{
 		scalar lambda = readScalar(waveDict.lookup("length"));
@@ -60,9 +80,41 @@ g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 		omega_ = 2*pi_/tau;
 		u1or2_ = waveDict.lookupOrDefault("u1or2",0.0);
 	}
+*/
 }
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
+
+void steadyWave::readParmsFromDict(const dictionary& waveDict)
+{
+	N_ = waveDict.lookupOrDefault<int>("nModes",20);
+	B_.setSize(N_);
+	B_ = 0.0;
+	E_.setSize(N_+1);
+	E_ = 0.0;
+	H_ = waveDict.lookupOrDefault<scalar>("height",0.0);
+	d_ = waveDict.lookupOrDefault<scalar>("depth",0.0);
+	uType_ = waveDict.lookupOrDefault<int>("uType",2);
+	nHsteps_ = waveDict.lookupOrDefault<int>("nHeightSteps",20);
+	pi_ = Foam::acos(-1.0);
+	g_ = waveDict.lookupOrDefault<scalar>("g",9.81);
+
+	if ( uType_ == 0 )
+	{
+		scalar lambda = readScalar(waveDict.lookup("length"));
+		k_ = 2*pi_/lambda;
+		omega_ = 0.0; //co-moving frame
+		//u1or2 is not used for anything in this case
+	}
+	else if ( (uType_ == 1) || (uType_ == 2) )
+	{
+		//k_ is calculated by fenton()
+		scalar tau = readScalar(waveDict.lookup("period"));
+		omega_ = 2*pi_/tau;
+		u1or2_ = waveDict.lookupOrDefault("u1or2",0.0);
+	}	
+}
+
 
 bool steadyWave::sameWave(const dictionary& waveDict)
 {
@@ -102,9 +154,8 @@ bool steadyWave::sameWave(const dictionary& waveDict)
 	return sameWave;
 }
 
-void steadyWave::fenton()
+void steadyWave::calcCoeffs()
 {
-
 	scalar lort, g = mag(g_);
 
 	if (uType_ == 0)
@@ -152,6 +203,7 @@ void steadyWave::fenton()
 	x[2*N_+3] = q;
 	x[2*N_+4] = r;
 	
+	//Finding root in parameter space
 	for (int ii=1; ii<=nHsteps_; ii++) 
 	{
 		findRoot(x, ii*H_/nHsteps_/d_, lort);
@@ -322,7 +374,7 @@ void steadyWave::writeDict(word outDictName)
 	outDict.add("B",B_,true);
 	outDict.add("E",E_,true);
 	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
-	if (omega_ > 0)
+	if (omega_ > 0) //Period is infinite 
 	{
 		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
 	}

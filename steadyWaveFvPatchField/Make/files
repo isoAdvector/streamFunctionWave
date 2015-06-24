@@ -1,3 +1,4 @@
 steadyWaveFvPatchFields.C
+../calcSteadyWave/steadyWave.C
 
 LIB = $(FOAM_USER_LIBBIN)/libsteadyWaveFvPatchField

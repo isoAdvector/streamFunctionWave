@@ -92,7 +92,7 @@ int main(int argc, char *argv[])
 	if ( calcWave )
 	{
 		Info << "Calculating stream function wave..." << endl;
-		inWave.fenton();
+		inWave.calcCoeffs();
 		Info << "Writing wave to file " << outDictName << endl;
 		inWave.writeDict(outDictName);
 	}

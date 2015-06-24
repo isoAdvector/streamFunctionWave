@@ -45,7 +45,8 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 :
     mixedFvPatchField<Type>(p, iF)
 {
-	Info<< "Construct from patch and internal field" << endl;
+	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+		 << this->patch().name() << " from patch and internal field." << endl;
 	Info<< "STEADYWAVEFVPATCHFIELD WARNING: THIS CONSTRUCTOR CURRENTLY DOES NOT INITIALISE PATCH PROPERLY!!!" << endl;
 //	writeOutMembers();
 
@@ -63,31 +64,37 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
     const dictionary& dict
 )
 :
-    mixedFvPatchField<Type>(p, iF),
-	d_(readScalar(dict.lookup("d"))),
-	k_(readScalar(dict.lookup("k"))),
-	omega_(readScalar(dict.lookup("omega"))),
-	uBar_(readScalar(dict.lookup("uBar"))),
-	E_(dict.lookup("E")),
-	B_(dict.lookup("B")),
-	K_(vector(dict.lookup("direction"))),
-	phi_(dict.lookupOrDefault<scalar>("phase",0.0)),
-	rampUpTime_(dict.lookupOrDefault<scalar>("rampUpTime",0.0)),
-	pi_(acos(-1.0))
+    mixedFvPatchField<Type>(p, iF)
 {
-
-	//	Info<< "Construct from patch, internal field and dictionary" << endl;
-
-	if ( mag(K_) == 0 )
-	{
-		Info << "Direction vector must have non-zero length!" << endl;
-	}
-	else
-	{
-		K_ = K_/mag(K_);
-	}
+	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+		 << this->patch().name() << " from patch, internal field and dictionary." << endl;
 	
-    g_ = 
+//	if ( dict.found("readFromWaveDict") && !dict.lookup("readFromWaveDict") ) //reading from constant/waveProperties
+	{
+		dictionary patchWaveProperties;
+		{
+			IOdictionary waveProp
+			(
+				IOobject
+				(
+					"waveProperties",
+					this->db().time().constant(),
+					this->db(),
+					IOobject::MUST_READ,
+					IOobject::NO_WRITE
+				)
+			);
+			patchWaveProperties = waveProp.subDict(this->patch().name());
+		}
+		//This is supposed to set N_, H_, d_, uType, nHSteps_, pi_, g_ by reading from subDict but not sure it does:
+//		steadyWave sw(steadyWave::steadyWave(patchWaveProperties)); 
+		readParmsFromDict(patchWaveProperties);
+
+		K_ = vector(patchWaveProperties.lookupOrDefault<vector>("direction",vector::zero));
+		phi_ = patchWaveProperties.lookupOrDefault<scalar>("phase",0.0);
+	}
+
+	vector gVector = 
 	uniformDimensionedVectorField
 	(
 		IOobject
@@ -99,10 +106,25 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 			IOobject::NO_WRITE
 		)
 	).value();
+	g_ = mag(gVector);
+	up_ = -gVector/g_;
 
-	if ( mag(g_ & K_) > VSMALL )
+	//Here we should first check if any other field on this patch has already calculated its 
+	calcCoeffs();
+	
+	if ( mag(up_ & K_) > SMALL )
 	{
-		Info << "Steady wave warning: Wave vector has non-zero vertical component." << endl;
+		Info << "Steady wave warning: Wave vector has non-zero vertical component which will be ignored." << endl;
+		K_ -= (up_ & K_)*up_;;
+	}
+
+	if ( mag(K_) < SMALL )
+	{
+		Info << "Direction vector has zero length. Using face normals for wave direction." << endl; //STILL NOT IMPLEMENTED!!!!!!!
+	}
+	else
+	{
+		K_ = K_/mag(K_);
 	}
 	
 	//Finding lowest and the "backmost" mesh point on the patch
@@ -112,11 +134,10 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	const polyPatch& patch = mesh.boundaryMesh()[patchID];
 	const labelList& labels(patch.meshPoints());
 
-	vector up(-g_/mag(g_));
 	scalar ymin(1e20), xmin(1e20);
 	forAll(labels, pi)
 	{
-		scalar yi = (up & (pts[labels[pi]]));
+		scalar yi = (up_ & (pts[labels[pi]]));
 		scalar xi = (K_ & (pts[labels[pi]]));
 		if (yi < ymin) ymin = yi;
 		if (xi < xmin) xmin = xi;
@@ -164,13 +185,12 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
         fvPatchField<Type>::operator=(this->patchInternalField());
     }
 
-//	writeOutMembers();
-
     this->refValue() = *this;
     this->refGrad() = pTraits<Type>::zero;
     this->valueFraction() = 0.0;
 
 	evaluate();
+	writeOutMembers();
 }
 
 template<class Type>
@@ -184,8 +204,9 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 :
     mixedFvPatchField<Type>(ptf, p, iF, mapper)
 {
-//	Info<< "Construct by mapping given steadyWaveFvPatchField onto a new patch" << endl;
-	init(ptf);
+	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+		 << this->patch().name() << " by mapping given steadyWaveFvPatchField onto a new patch." << endl;
+	copyInit(ptf);
 }
 
 
@@ -198,8 +219,9 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 :
     mixedFvPatchField<Type>(ptf, iF)
 {
-	Info<< "Construct as copy setting internal field reference" << endl;
-	init(ptf);
+	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+		 << this->patch().name() << " as copy setting internal field reference." << endl;
+	copyInit(ptf);
 }
 
 
@@ -242,7 +264,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	
 	scalarField x = (K_/mag(K_)) & (this->patch().Cf());
 	x -= xWaveMaker_;
-	scalarField y = (-g_/mag(g_)) & (this->patch().Cf());
+	scalarField y = up_ & (this->patch().Cf());
 	y -= seabedHeight_; //Vertical coordinate as measured from seabed
 	
 	scalar t = this->db().time().value();
@@ -265,10 +287,11 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 		u += jj*B_[ii]*cosh(jj*k_*y)/cosh(jj*k_*d_)*cos(jj*theta); //Fenton (1999), eq. (3.24)
 		v += jj*B_[ii]*sinh(jj*k_*y)/cosh(jj*k_*d_)*sin(jj*theta); //Fenton (1999), eq. (3.25)
 	}
-	u *= sqrt(mag(g_)/k_);
-	v *= sqrt(mag(g_)/k_);
+	u *= sqrt(g_/k_);
+	v *= sqrt(g_/k_);
 	u += omega_/k_ - uBar_;
 
+/*
 	//Attenuating fields during ramp up time - CURRENTLY NOT PROPERLY IMPLEMENTED!!!!!!!!!!
 	scalar fac(1.0);
 	if (t < rampUpTime_)
@@ -278,6 +301,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 		v *= fac;
 		eta = fac*(eta-d_) + d_;
 	}
+*/
 
 	//Calculating volume fraction (assuming parallelogram shaped - e.g. rectangular - faces with horizontal sides)
 	const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
@@ -285,7 +309,6 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	const label start = this->patch().patch().start(); //index in mesh face list of first face belonging to this patch
 	scalarField alpha(y.size(),0.0);
 	
-	vector up = -g_/mag(g_);
 	scalar umax(0.0), vmax(0.0), yumax(0.0);
 	forAll(y,facei)
     {
@@ -294,7 +317,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 		scalar ymin(1e20), ymax(-1e20);
 		for (label pi = 0; pi < nPoints; pi++)
         {
-			scalar yi = (up & (p[f[pi]])) - seabedHeight_;
+			scalar yi = (up_ & (p[f[pi]])) - seabedHeight_;
 			if (yi < ymin) ymin = yi;
 			if (yi > ymax) ymax = yi;
         }
@@ -322,6 +345,8 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 		{
 				u[facei] = 0.0;//-mag(umax)*(yf-yRoof)/(yumax-yRoof);
 				v[facei] = sign(vmax)*magU*(yf-yRoof)/(yumax-yRoof);
+//				u[facei] = umax*(yf-yRoof)/(yumax-yRoof);
+//				v[facei] = vmax*(yf-yRoof)/(yumax-yRoof);
 		}
 	}
 
@@ -346,7 +371,7 @@ void steadyWaveFvPatchField<vector>::setField
 )
 {			
 	Info << "Enter steadyWaveFvPatchField<vector>::setField" << endl;
-	this->refValue() = u*K_/mag(K_) + v*( -g_/mag(g_) );
+	this->refValue() = u*K_/mag(K_) + v*up_;
 	this->refGrad() = vector::zero;
 	this->valueFraction() = 1.0;
 //	this->valueFraction() = pos(alpha-rho2_/rho1_);
@@ -387,7 +412,7 @@ void steadyWaveFvPatchField<scalar>::setField
 //			Taken from buoyantPressure. Corresponds to a fixed wall with no slip. Not optimal but works.
 			const fvPatchField<scalar>& rho =
 				patch().lookupPatchField<volScalarField, scalar>("rho");
-			this->refGrad() = -rho.snGrad()*(g_ & this->patch().Cf()); 
+			this->refGrad() = -rho.snGrad()*((-g_*up_) & this->patch().Cf()); 
 			this->valueFraction() = 0.0; //fixedGradient as in buoyantPressure
 		}
 		else
@@ -414,9 +439,11 @@ void steadyWaveFvPatchField<Type>::setField
 
 // Initialising 
 template<class Type>
-void steadyWaveFvPatchField<Type>::init(const steadyWaveFvPatchField<Type>& ptf)
+void steadyWaveFvPatchField<Type>::copyInit(const steadyWaveFvPatchField<Type>& ptf)
 {
-//	Info << "Enter steadyWaveFvPatchField<Type>::init(const steadyWaveFvPatchField<Type>& ptf)" << endl;
+//	Info << "Enter steadyWaveFvPatchField<Type>::copyInit(const steadyWaveFvPatchField<Type>& ptf)" << endl;
+	N_ = ptf.N_;	
+	H_ = ptf.H_;
 	d_ = ptf.d_;
 	k_ = ptf.k_;
 	omega_ = ptf.omega_;
@@ -425,7 +452,6 @@ void steadyWaveFvPatchField<Type>::init(const steadyWaveFvPatchField<Type>& ptf)
 	B_ = ptf.B_;
 	K_ = ptf.K_;
 	phi_ = ptf.phi_;
-	rampUpTime_ = ptf.rampUpTime_;
 
 	pi_ = ptf.pi_;
 	g_ = ptf.g_;
@@ -434,6 +460,13 @@ void steadyWaveFvPatchField<Type>::init(const steadyWaveFvPatchField<Type>& ptf)
 	xWaveMaker_ = ptf.xWaveMaker_;
 	rho1_ = ptf.rho1_;
 	rho2_ = ptf.rho2_;
+	
+	uType_ = ptf.uType_;
+	nHsteps_ = ptf.nHsteps_;
+	u1or2_ = ptf.u1or2_;
+	R_ = ptf.R_;
+	up_ = ptf.up_;	
+
 //	writeOutMembers();
 }
 
@@ -444,15 +477,15 @@ void steadyWaveFvPatchField<Type>::write(Ostream& os) const
 //	Info << "Entering write function and doing fvPatchField<Type>::write(os);" << endl;
 
     fvPatchField<Type>::write(os);
-	os.writeKeyword("d") << d_ << token::END_STATEMENT << nl;
-	os.writeKeyword("k") << k_ << token::END_STATEMENT << nl;
-	os.writeKeyword("omega") << omega_ << token::END_STATEMENT << nl;
-	os.writeKeyword("uBar") << uBar_ << token::END_STATEMENT << nl;
-	os.writeKeyword("E") << E_ << token::END_STATEMENT << nl;
-	os.writeKeyword("B") << B_ << token::END_STATEMENT << nl;
-	os.writeKeyword("direction") << K_ << token::END_STATEMENT << nl;
-	os.writeKeyword("phase") << phi_ << token::END_STATEMENT << nl;
-	os.writeKeyword("rampUpTime") << rampUpTime_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("d") << d_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("k") << k_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("omega") << omega_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("uBar") << uBar_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("E") << E_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("B") << B_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("direction") << K_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("phase") << phi_ << token::END_STATEMENT << nl;
+//	os.writeKeyword("rampUpTime") << rampUpTime_ << token::END_STATEMENT << nl;
 
 /*    os.writeKeyword("depth")
         << d_ << token::END_STATEMENT << nl;
@@ -469,23 +502,29 @@ template<class Type>
 void steadyWaveFvPatchField<Type>::writeOutMembers()
 {
 	Info << "Enter  steadyWaveFvPatchField<Type>::writeOutMembers()" << endl;
+	Info << "N_ " << N_ << endl;
+	Info << "H_ " << H_ << endl;
 	Info << "d_ " << d_ << endl;
+	Info << "uType_ " << uType_ << endl;
+	Info << "nHsteps_ " << nHsteps_ << endl;
+	Info << "pi_ " << pi_ << endl;
 	Info << "g_ " << g_ << endl;
+	Info << "up_ " << up_ << endl;
 	Info << "K_ " << K_ << endl;
 	Info << "seabedHeight_ " << seabedHeight_ << endl;
 	Info << "xWaveMaker_ " << xWaveMaker_ << endl;
 	Info << "phi_ " << phi_ << endl;
-	Info << "rampUpTime_ " << rampUpTime_ << endl;
 
 	Info << "rho1_ " << rho1_ << endl;
 	Info << "rho2_ " << rho2_ << endl;
 	Info << "k_ " << k_ << endl;
 	Info << "omega_ " << omega_ << endl;
 
+	Info << "u1or2_ " << u1or2_ << endl;
 	Info << "uBar_ " << uBar_ << endl;
+	Info << "R_ " << R_ << endl;
 	Info << "E_ " << E_ << endl;
 	Info << "B_ " << B_ << endl;
-	Info << "pi_ " << pi_ << endl;
 }
 
 

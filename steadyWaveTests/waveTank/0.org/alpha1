@@ -22,7 +22,8 @@ boundaryField
 {
     left            
     {
-        type    zeroGradient;
+        type    steadyWave;
+        value   uniform 0;
     }
     right
     {

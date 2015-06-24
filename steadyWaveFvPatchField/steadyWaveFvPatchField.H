@@ -99,6 +99,7 @@ Author
 
 #include "mixedFvPatchFields.H"
 #include "uniformDimensionedFields.H" //gravity type of field
+#include "steadyWave.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -112,45 +113,20 @@ namespace Foam
 template<class Type>
 class steadyWaveFvPatchField
 :
-    public mixedFvPatchField<Type>
+    public mixedFvPatchField<Type>,
+	public steadyWave
 {
 protected:
-
-		//- wave property dictionary
-
-		//- Mean water level
-        scalar d_;
-
-		//- Wave number k = 2*pi/lambda
-        scalar k_;
-								
-		//- Angular wave frequency
-        scalar omega_;
-		
-		//- Mean fluid speed in co-moving frame
-        scalar uBar_;
-
-		//- Fourier coefficients for surface elevation
-        scalarField E_;
-
-		//- Fourier coefficients for velocity field and pressure
-        scalarField B_;
 		
 		//- Wave vector
         vector K_;
 		
-		//- Wave phase
+		//- Unit vector pointing upwards
+        vector up_;
+
+		//- Wave phase in radians
         scalar phi_;
-
-		//- ramp up time
-		scalar rampUpTime_;		
 		
-		//- Take a wild guess
-		scalar pi_;
-
-		//- gravity vector
-        vector g_;
-
 		//- Vertical coordinate of seabed at patch
 		scalar seabedHeight_;
 
@@ -166,7 +142,7 @@ protected:
     // Protected member functions
 				
 		//Initialize member data from other patch (avoid constructor code duplication)
-		void init(const steadyWaveFvPatchField<Type>&);
+		void copyInit(const steadyWaveFvPatchField<Type>&);
 								
 		void writeOutMembers();
 
