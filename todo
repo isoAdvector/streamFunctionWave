@@ -1,0 +1,16 @@
+- Make phase default value equal to the one giving eta = d for T = 0.
+- Make steadyWaveFvPatchField write Fourier coeffs and other needed data to object registry to avoid calculating it for all fields on patch
+- Make 3D test case with different waves send into domain from different patches.
+- If solution not converged it should make the simulation stop.
+- There should be an option to make kDir = Sf;
+- Test in parallel also with patch decomposed across several processors
+- Change name of suite to streamFunctionWave
+- Conduct investigation to come up with expressions for nModes and nHsteps as functions of H, lambda and d
+- Make it easy to do a scan in input space writing out all interesting quantities for each input combination.
+- Look into why waveTank crashes at time = 42. Is it because of reflections?
+- Try to make internal field values of patch cells equal to 0.5 times analytic expression + 0.5 * [what it is]
+- Implement eta(x,t), U(x,y,t), p(x,y,t), dpdx and dpdy and possibly others in steadyWave class
+- Make more combinations of input parameters possible, for instance H,lambda,T and H,lambda,u2
+- Change u1or2 name to current
+- Write documentation pdf
+- Put example videos on youtube
