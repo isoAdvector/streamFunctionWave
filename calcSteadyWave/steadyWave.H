@@ -105,6 +105,8 @@ protected:
 	
 	scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort);
 
+	scalar zeroPointPhase();
+
 public:
 
 	steadyWave();
@@ -117,7 +119,31 @@ public:
 
 	void calcCoeffs();
 
-	void writeDict(word);
+	scalarField getEta
+	(
+		const scalarField& x,
+		const scalar& time,
+		const scalar& phi
+	);
+
+	scalarField getU
+	(
+		const scalarField& x,
+		const scalarField& y,
+		const scalar& t,
+		const scalar& phi
+	);
+
+	scalarField getV
+	(
+		const scalarField& x,
+		const scalarField& y,
+		const scalar& t,
+		const scalar& phi
+	);
+
+	void writeDict(word);	
+	
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

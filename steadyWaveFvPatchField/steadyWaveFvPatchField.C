@@ -268,7 +268,13 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	y -= seabedHeight_; //Vertical coordinate as measured from seabed
 	
 	scalar t = this->db().time().value();
+	
+	scalarField eta = getEta(x,t,phi_);
+	scalarField u = getU(x,y,t,phi_);
+	scalarField v = getV(x,y,t,phi_);
+/*		
 	scalarField theta = k_*x - omega_*t + 2*pi_*phi_;
+
 
 	//Calculating surface elevation above sealevel
 	scalarField eta(x.size(),0.0);
@@ -290,7 +296,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	u *= sqrt(g_/k_);
 	v *= sqrt(g_/k_);
 	u += omega_/k_ - uBar_;
-
+*/
 /*
 	//Attenuating fields during ramp up time - CURRENTLY NOT PROPERLY IMPLEMENTED!!!!!!!!!!
 	scalar fac(1.0);
@@ -370,7 +376,7 @@ void steadyWaveFvPatchField<vector>::setField
 	const scalarField& v
 )
 {			
-	Info << "Enter steadyWaveFvPatchField<vector>::setField" << endl;
+//	Info << "Enter steadyWaveFvPatchField<vector>::setField" << endl;
 	this->refValue() = u*K_/mag(K_) + v*up_;
 	this->refGrad() = vector::zero;
 	this->valueFraction() = 1.0;
@@ -433,7 +439,7 @@ void steadyWaveFvPatchField<Type>::setField
 	const scalarField& v
 )
 {
-	Info << "Enter steadyWaveFvPatchField<Type>::setField" << endl;
+//	Info << "Enter steadyWaveFvPatchField<Type>::setField" << endl;
 //   dummy code executed if setField is called with other Type than scalar or vector
 }   
 
@@ -501,7 +507,7 @@ void steadyWaveFvPatchField<Type>::write(Ostream& os) const
 template<class Type>
 void steadyWaveFvPatchField<Type>::writeOutMembers()
 {
-	Info << "Enter  steadyWaveFvPatchField<Type>::writeOutMembers()" << endl;
+//	Info << "Enter  steadyWaveFvPatchField<Type>::writeOutMembers()" << endl;
 	Info << "N_ " << N_ << endl;
 	Info << "H_ " << H_ << endl;
 	Info << "d_ " << d_ << endl;

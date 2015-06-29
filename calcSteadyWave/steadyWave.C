@@ -357,6 +357,71 @@ scalarSquareMatrix steadyWave::jac(const scalarField& x, scalar h, scalar lort)
 	return J;
 }
 
+Foam::scalar steadyWave::zeroPointPhase()
+{
+	return 1.0;
+}
+
+Foam::scalarField steadyWave::getEta
+(
+	const scalarField& x,
+	const scalar& t,
+	const scalar& phi
+)
+{
+	scalarField theta = k_*x - omega_*t + 2*pi_*phi;
+	scalarField eta(x.size(),0.0);
+	forAll(E_,jj)
+	{
+		eta += 2*E_[jj]*cos(jj*theta); //Fenton (1999), eq. (3.27)
+	}	
+	return eta;
+}
+
+Foam::scalarField steadyWave::getU
+(
+	const scalarField& x,
+	const scalarField& y,
+	const scalar& t,
+	const scalar& phi
+)
+{
+	scalarField theta = k_*x - omega_*t + 2*pi_*phi;
+
+	scalarField u(y.size(),0.0);
+	forAll(B_,ii)
+	{
+		label jj = ii + 1;
+		u += jj*B_[ii]*cosh(jj*k_*y)/cosh(jj*k_*d_)*cos(jj*theta); //Fenton (1999), eq. (3.24)
+	}
+	u *= sqrt(g_/k_);
+	u += omega_/k_ - uBar_;
+	
+	return u;
+}
+
+
+Foam::scalarField steadyWave::getV
+(
+	const scalarField& x,
+	const scalarField& y,
+	const scalar& t,
+	const scalar& phi
+)
+{
+	scalarField theta = k_*x - omega_*t + 2*pi_*phi;
+	scalarField v(y.size(),0.0);
+	forAll(B_,ii)
+	{
+		label jj = ii + 1;
+		v += jj*B_[ii]*sinh(jj*k_*y)/cosh(jj*k_*d_)*sin(jj*theta); //Fenton (1999), eq. (3.25)
+	}
+	v *= sqrt(g_/k_);
+	
+	return v;
+}
+
+	
 void steadyWave::writeDict(word outDictName)
 {
 	dictionary outDict(outDictName);
