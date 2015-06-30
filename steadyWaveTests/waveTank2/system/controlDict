@@ -1,0 +1,108 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+| =========                 |                                                 |
+| \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox           |
+|  \\    /   O peration     | Version:  2.0.1                                 |
+|   \\  /    A nd           | Web:      http://www.openfoam.org               |
+|    \\/     M anipulation  |                                                 |
+\*---------------------------------------------------------------------------*/
+
+FoamFile
+{
+    version         2.0;
+    format          ascii;
+    class           dictionary;
+	location		"system";
+    object          controlDict;
+}
+
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
+
+application     interFoam;
+
+startFrom       latestTime;
+
+startTime       0.0;
+
+stopAt          endTime;
+
+endTime         20;
+
+writeControl    adjustableRunTime;
+
+writeInterval   .1;
+
+deltaT          0.001;
+
+purgeWrite      0;
+
+writeFormat     ascii;
+
+writePrecision  6;
+
+writeCompression compressed;
+
+timeFormat      general;
+
+timePrecision   6;
+
+graphFormat     raw;
+
+runTimeModifiable yes;
+
+adjustTimeStep  yes;
+
+maxCo           0.2;
+maxAlphaCo      0.2;
+
+maxDeltaT       0.2;
+
+//libs ( "libFentonWaveBC.so" "libOpenFOAM.so" "/home/dhi/OpenFOAM/site/gsl/1.15/lib/libgsl.so" "/home/dhi/OpenFOAM/site/gsl/1.15/lib/libgslcblas.so" );
+//libs ( "libFentonWaveBC.so" "libOpenFOAM.so" "/home/dhi/OpenFOAM/site/gsl/1.15/lib/libgsl.so" "${GSL_DIR}/lib/libgslcblas.so" );
+libs ( "libsteadyWaveFvPatchField.so" "libOpenFOAM.so" );
+
+functions
+(
+   sets
+   {
+		type    sets;
+		functionObjectLibs
+		(
+		   "libsampling.so"
+		);
+		outputControl   outputTime;
+		outputInterval  1;
+		setFormat raw;
+		fields
+		(
+		   U
+		   alpha1
+		);
+		sets
+		(
+			x00000cm
+			{
+				type        face;
+				axis        y;
+				start       (0 -51 0.0);
+				end         (0 16 0.0);
+			}
+			x15249cm
+			{
+				type        face;
+				axis        y;
+				start       (152.49 -51 0.0);
+				end         (152.49 16 0.0);
+			}
+			x30498cm
+			{
+				type        face;
+				axis        y;
+				start       (304.98 -51 0.0);
+				end         (304.98 16 0.0);
+			}
+		);
+		interpolationScheme cellPointFace;
+   }
+);
+
+// ************************************************************************* //
