@@ -359,7 +359,29 @@ scalarSquareMatrix steadyWave::jac(const scalarField& x, scalar h, scalar lort)
 
 Foam::scalar steadyWave::zeroPointPhase()
 {
-	return 1.0;
+	scalar lambda = 2.0*pi_/k_;
+	scalarField x0(1,0.0);
+	scalarField x1(1,lambda/2.0);
+	scalarField e0 = getEta(x0,0.0,0.0);
+	scalarField e1 = getEta(x1,0.0,0.0);
+	scalar err = GREAT;
+	scalar tol = 1e-6;
+	scalarField xMean(1,0.0);
+	while (mag(err) > tol)
+	{
+		xMean[0] = 0.5*(x0[0] + x1[0]);
+		scalarField etatmp = getEta(xMean,0.0,0.0);
+		err = (etatmp[0]-d_)/d_;
+		if (err > 0.0)
+		{
+			x0[0] = xMean[0];
+		}
+		else
+		{
+			x1[0] = xMean[0];			
+		}
+	}
+	return (xMean[0]/lambda);
 }
 
 Foam::scalarField steadyWave::getEta

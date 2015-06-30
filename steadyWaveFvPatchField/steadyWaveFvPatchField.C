@@ -111,6 +111,7 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 
 	//Here we should first check if any other field on this patch has already calculated its 
 	calcCoeffs();
+	phi_ = 1.0-zeroPointPhase();
 	
 	if ( mag(up_ & K_) > SMALL )
 	{
@@ -337,7 +338,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 			yumax = ymax;// + alpha[facei]*(ymax-ymin);
 		}
     }
-	reduce(umax, maxOp<scalar>());    
+	reduce(umax, maxOp<scalar>());
 	reduce(vmax, maxOp<scalar>());    
 	reduce(yumax, maxOp<scalar>());    
 
@@ -379,8 +380,8 @@ void steadyWaveFvPatchField<vector>::setField
 //	Info << "Enter steadyWaveFvPatchField<vector>::setField" << endl;
 	this->refValue() = u*K_/mag(K_) + v*up_;
 	this->refGrad() = vector::zero;
-	this->valueFraction() = 1.0;
-//	this->valueFraction() = pos(alpha-rho2_/rho1_);
+//	this->valueFraction() = 1.0;
+	this->valueFraction() = pos(alpha-SMALL);
 } 
 
 // Setting volume fraction (alpha1) and pressure (pd etc) field

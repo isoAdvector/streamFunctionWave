@@ -1,4 +1,3 @@
-- Make phase default value equal to the one giving eta = d for T = 0.
 - Make steadyWaveFvPatchField write Fourier coeffs and other needed data to object registry to avoid calculating it for all fields on patch
 - Make 3D test case with different waves send into domain from different patches.
 - If solution not converged it should make the simulation stop.
@@ -14,3 +13,4 @@
 - Change u1or2 name to current
 - Write documentation pdf
 - Put example videos on youtube
+* Make phase default value equal to the one giving eta = d for T = 0.
