@@ -291,14 +291,20 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	scalarField u = getU(x,y,t,phi_);
 	scalarField v = getV(x,y,t,phi_);
 
+	scalarField umax = getU(x,eta,t,phi_);
+	scalarField vmax = getV(x,eta,t,phi_);
+
+    scalar yMax(gMax(y));
+	scalarField fac = (y-yMax)/(eta-yMax);
+	u = (u*neg(mag(u)- mag(umax)) + fac*umax*pos(mag(u)- mag(umax)));
+	v = (v*neg(mag(v)- mag(vmax)) + fac*vmax*pos(mag(v)- mag(vmax)));
+
 	//Calculating volume fraction (assuming parallelogram shaped - e.g. rectangular - faces with horizontal sides)
 	const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
 	const pointField& p = this->dimensionedInternalField().mesh().points(); //Handle to list of all grid points
 	const label start = this->patch().patch().start(); //index in mesh face list of first face belonging to this patch
 	scalarField alpha(y.size(),0.0);
 	
-
-//	scalar umax(0.0), vmax(0.0), yumax(0.0);
 	forAll(y,facei)
     {
 		//Really silly to recalculate at each time step
@@ -312,9 +318,10 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 			if (yi > ymax) ymax = yi;
         }
 		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
-		u[facei] *= neg(ymin-eta[facei]);
-		v[facei] *= neg(ymin-eta[facei]);
+//		u[facei] *= neg(ymin-eta[facei]);
+//		v[facei] *= neg(ymin-eta[facei]);
     }
+	
 /*	
 	reduce(ueta, maxOp<scalar>());
 	reduce(vmax, maxOp<scalar>());    
@@ -385,8 +392,8 @@ void steadyWaveFvPatchField<vector>::setField
 //	Info << "Enter steadyWaveFvPatchField<vector>::setField" << endl;
 	this->refValue() = u*K_/mag(K_) + v*up_;
 	this->refGrad() = vector::zero;
-//	this->valueFraction() = 1.0;
-	this->valueFraction() = max(alpha-SMALL);
+	this->valueFraction() = 1.0;
+//	this->valueFraction() = max(alpha-SMALL);
 } 
 
 // Setting volume fraction (alpha1) and pressure (pd etc) field
