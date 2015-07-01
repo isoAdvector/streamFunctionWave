@@ -83,6 +83,8 @@ void steadyWave::readParmsFromDict(const dictionary& waveDict)
 	pi_ = Foam::acos(-1.0);
 	g_ = waveDict.lookupOrDefault<scalar>("g",9.81);
 	k_ = waveDict.lookupOrDefault<scalar>("k",0.0);
+	R_ = waveDict.lookupOrDefault<scalar>("R",0.0);
+	uBar_ = waveDict.lookupOrDefault<scalar>("uBar",0.0);
 
 	if ( uType_ == 0 )
 	{

@@ -100,7 +100,6 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 
 	word filnam("steadyWaveOutputFor" + this->patch().name());
 	fileName outDictName(this->db().time().constant()/filnam);
-	Info << "outDictName = " << outDictName << endl; 
 
 	bool calcWave(true);
 	steadyWave inWave(patchInWave);	
@@ -209,6 +208,7 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
     this->refGrad() = pTraits<Type>::zero;
     this->valueFraction() = 0.0;
 
+	writeOutMembers();
 	evaluate();
 }
 
@@ -275,7 +275,7 @@ template<class Type>
 void steadyWaveFvPatchField<Type>::updateCoeffs()
 {
 //	Info<< "Enter steadyWaveFvPatchField<Type>::updateCoeffs()" << endl;
-
+	
 	if (this->updated())
     {
         return;
@@ -287,7 +287,6 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	y -= seabedHeight_; //Vertical coordinate as measured from seabed
 	
 	scalar t = this->db().time().value();
-	
 	scalarField eta = getEta(x,t,phi_);
 	scalarField u = getU(x,y,t,phi_);
 	scalarField v = getV(x,y,t,phi_);
@@ -298,6 +297,29 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	const label start = this->patch().patch().start(); //index in mesh face list of first face belonging to this patch
 	scalarField alpha(y.size(),0.0);
 	
+
+//	scalar umax(0.0), vmax(0.0), yumax(0.0);
+	forAll(y,facei)
+    {
+		//Really silly to recalculate at each time step
+        const labelList& f = fs[facei + start];
+        label nPoints = f.size();
+		scalar ymin(1e20), ymax(-1e20);
+		for (label pi = 0; pi < nPoints; pi++)
+        {
+			scalar yi = (up_ & (p[f[pi]])) - seabedHeight_;
+			if (yi < ymin) ymin = yi;
+			if (yi > ymax) ymax = yi;
+        }
+		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
+		u[facei] *= neg(ymin-eta[facei]);
+		v[facei] *= neg(ymin-eta[facei]);
+    }
+/*	
+	reduce(ueta, maxOp<scalar>());
+	reduce(vmax, maxOp<scalar>());    
+	reduce(yumax, maxOp<scalar>());    
+
 	scalar umax(0.0), vmax(0.0), yumax(0.0);
 	forAll(y,facei)
     {
@@ -324,6 +346,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	reduce(vmax, maxOp<scalar>());    
 	reduce(yumax, maxOp<scalar>());    
 
+
     //Setting velocity field in air phase to decrease linearly from -(umax,vmax) just above free surface to (0,0) at roof.
     scalar yRoof(gMax(y));
 	scalar magU = sqrt(umax*umax+vmax*vmax);
@@ -338,7 +361,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 //				v[facei] = vmax*(yf-yRoof)/(yumax-yRoof);
 		}
 	}
-
+*/
 	//Setting field depending on its type
 	setField(this->refValue(), alpha, u, v);
 
@@ -363,7 +386,7 @@ void steadyWaveFvPatchField<vector>::setField
 	this->refValue() = u*K_/mag(K_) + v*up_;
 	this->refGrad() = vector::zero;
 //	this->valueFraction() = 1.0;
-	this->valueFraction() = pos(alpha-SMALL);
+	this->valueFraction() = max(alpha-SMALL);
 } 
 
 // Setting volume fraction (alpha1) and pressure (pd etc) field
