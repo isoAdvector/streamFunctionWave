@@ -27,6 +27,7 @@ License
 #include "steadyWaveFvPatchField.H"
 #include "surfaceFields.H" //using lookupPatchField to get flux
 #include "volFields.H"
+#include "IFstream.H"
 
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -97,31 +98,29 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	);
 	dictionary patchInWave = waveProp.subDict(this->patch().name());
 
-	IOdictionary patchOutWave
-	(
-		IOobject
-		(
-			"steadyWaveOutputFor" + this->patch().name(),
-			this->db().time().constant(),
-			this->db(),
-			IOobject::READ_IF_PRESENT,
-			IOobject::NO_WRITE
-		)
-	);
-	
+//	word filnam("steadyWaveOutputFor" + this->patch().name());
+	fileName outDictName(this->db().time().constant()/"steadyWaveOutputFor");
+	Info << "outDictName = " << outDictName << endl; 
+
+	bool calcWave(true);
 	steadyWave inWave(patchInWave);	
-	if ( !patchOutWave.empty() && inWave.sameWave(patchOutWave) )
+	if ( IFstream(outDictName) )
 	{
-		Info << "Wave already calculated on " << this->patch().name() << "... reusing old calculation" << endl;
-		readParmsFromDict(patchOutWave);
+		dictionary oldOutDict(IFstream(outDictName)(), true);
+		if ( inWave.sameWave(oldOutDict) )
+		{
+			calcWave = false;
+			Info << "Wave already calculated on " << this->patch().name() << "... reusing old calculation" << endl;
+			readParmsFromDict(oldOutDict);
+		}
 	}
-	else
+
+	if (calcWave)
 	{
 		Info << "Calculating stream function wave..." << endl;
 		readParmsFromDict(patchInWave);
 		calcCoeffs();
-		fileName fn(patchOutWave.objectPath());
-		writeDict(patchOutWave.objectPath());
+		writeDict(outDictName);
 	}
 	
 	K_ = vector(patchInWave.lookupOrDefault<vector>("direction",vector::zero));

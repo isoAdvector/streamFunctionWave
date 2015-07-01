@@ -54,13 +54,13 @@ R_(0)
 
 steadyWave::steadyWave(const dictionary& waveDict)
 :
-N_(waveDict.lookupOrDefault<int>("nModes",20)),
+N_(waveDict.lookupOrDefault<int>("N",20)),
 B_(N_,0.0),
 E_(N_+1,0.0),
-H_(waveDict.lookupOrDefault<scalar>("height",0.0)),
-d_(waveDict.lookupOrDefault<scalar>("depth",0.0)),
+H_(waveDict.lookupOrDefault<scalar>("H",0.0)),
+d_(waveDict.lookupOrDefault<scalar>("d",0.0)),
 uType_(waveDict.lookupOrDefault<int>("uType",2)),
-nHsteps_(waveDict.lookupOrDefault<int>("nHeightSteps",20)),
+nHsteps_(waveDict.lookupOrDefault<int>("nHSteps",20)),
 pi_(Foam::acos(-1.0)),
 g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 {
@@ -71,21 +71,21 @@ g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 
 void steadyWave::readParmsFromDict(const dictionary& waveDict)
 {
-	N_ = waveDict.lookupOrDefault<int>("nModes",20);
+	N_ = waveDict.lookupOrDefault<int>("N",20);
 	B_.setSize(N_);
 	B_ = 0.0;
 	E_.setSize(N_+1);
 	E_ = 0.0;
-	H_ = waveDict.lookupOrDefault<scalar>("height",0.0);
-	d_ = waveDict.lookupOrDefault<scalar>("depth",0.0);
+	H_ = waveDict.lookupOrDefault<scalar>("H",0.0);
+	d_ = waveDict.lookupOrDefault<scalar>("d",0.0);
 	uType_ = waveDict.lookupOrDefault<int>("uType",2);
-	nHsteps_ = waveDict.lookupOrDefault<int>("nHeightSteps",20);
+	nHsteps_ = waveDict.lookupOrDefault<int>("nHSteps",20);
 	pi_ = Foam::acos(-1.0);
 	g_ = waveDict.lookupOrDefault<scalar>("g",9.81);
 
 	if ( uType_ == 0 )
 	{
-		scalar lambda = readScalar(waveDict.lookup("length"));
+		scalar lambda = readScalar(waveDict.lookup("lambda"));
 		k_ = 2*pi_/lambda;
 		omega_ = 0.0; //co-moving frame
 		//u1or2 is not used for anything in this case
@@ -93,7 +93,7 @@ void steadyWave::readParmsFromDict(const dictionary& waveDict)
 	else if ( (uType_ == 1) || (uType_ == 2) )
 	{
 		//k_ is calculated by fenton()
-		scalar tau = readScalar(waveDict.lookup("period"));
+		scalar tau = readScalar(waveDict.lookup("T"));
 		omega_ = 2*pi_/tau;
 		u1or2_ = waveDict.lookupOrDefault("u1or2",0.0);
 	}	
@@ -450,11 +450,13 @@ void steadyWave::writeDict(word outDictName)
 		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
 	}
 	outDict.add("c",omega_/k_,true);
+
 	outDict.write(OFstream(outDictName)(), false);
 }
 
 void steadyWave::writeDict(fileName outDictName)
 {
+	Info << "Enter writeDict(fileName outDictName) " << endl;
 	dictionary outDict(outDictName);
 
 	outDict.add("H",H_,true);
@@ -475,7 +477,9 @@ void steadyWave::writeDict(fileName outDictName)
 		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
 	}
 	outDict.add("c",omega_/k_,true);
+
 	outDict.write(OFstream(outDictName)(), false);
+	
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
