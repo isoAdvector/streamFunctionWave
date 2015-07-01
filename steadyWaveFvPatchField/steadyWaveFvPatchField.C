@@ -98,8 +98,8 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	);
 	dictionary patchInWave = waveProp.subDict(this->patch().name());
 
-//	word filnam("steadyWaveOutputFor" + this->patch().name());
-	fileName outDictName(this->db().time().constant()/"steadyWaveOutputFor");
+	word filnam("steadyWaveOutputFor" + this->patch().name());
+	fileName outDictName(this->db().time().constant()/filnam);
 	Info << "outDictName = " << outDictName << endl; 
 
 	bool calcWave(true);
@@ -132,7 +132,6 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	{
 		phi_ = 1.0-zeroPointPhase();
 	}
-	
 	if ( mag(up_ & K_) > SMALL )
 	{
 		Info << "Steady wave warning: Wave vector has non-zero vertical component which will be ignored." << endl;
@@ -210,8 +209,7 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
     this->refGrad() = pTraits<Type>::zero;
     this->valueFraction() = 0.0;
 
-	updateCoeffs();
-	writeOutMembers();
+	evaluate();
 }
 
 template<class Type>
@@ -293,42 +291,6 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 	scalarField eta = getEta(x,t,phi_);
 	scalarField u = getU(x,y,t,phi_);
 	scalarField v = getV(x,y,t,phi_);
-/*		
-	scalarField theta = k_*x - omega_*t + 2*pi_*phi_;
-
-
-	//Calculating surface elevation above sealevel
-	scalarField eta(x.size(),0.0);
-	forAll(E_,jj)
-	{
-		eta += 2*E_[jj]*cos(jj*theta); //Fenton (1999), eq. (3.27)
-	}
-	
-	//Calculating velocity field components
-	scalarField u(y.size(),0.0);
-	scalarField v(y.size(),0.0);
-	int	jj;
-	forAll(B_,ii)
-	{
-		jj = ii + 1;
-		u += jj*B_[ii]*cosh(jj*k_*y)/cosh(jj*k_*d_)*cos(jj*theta); //Fenton (1999), eq. (3.24)
-		v += jj*B_[ii]*sinh(jj*k_*y)/cosh(jj*k_*d_)*sin(jj*theta); //Fenton (1999), eq. (3.25)
-	}
-	u *= sqrt(g_/k_);
-	v *= sqrt(g_/k_);
-	u += omega_/k_ - uBar_;
-*/
-/*
-	//Attenuating fields during ramp up time - CURRENTLY NOT PROPERLY IMPLEMENTED!!!!!!!!!!
-	scalar fac(1.0);
-	if (t < rampUpTime_)
-	{
-		fac = sin(pi_/2.0*t/rampUpTime_);
-		u *= fac;
-		v *= fac;
-		eta = fac*(eta-d_) + d_;
-	}
-*/
 
 	//Calculating volume fraction (assuming parallelogram shaped - e.g. rectangular - faces with horizontal sides)
 	const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
@@ -349,8 +311,8 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 			if (yi > ymax) ymax = yi;
         }
 		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
-		u[facei] *= pos(alpha[facei]-rho2_/rho1_);
-		v[facei] *= pos(alpha[facei]-rho2_/rho1_);
+		u[facei] *= pos(alpha[facei]-SMALL);
+		v[facei] *= pos(alpha[facei]-SMALL);
 		if (mag(u[facei]) > mag(umax)) 
 		{
 			umax = u[facei];

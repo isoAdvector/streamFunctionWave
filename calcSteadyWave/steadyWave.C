@@ -72,16 +72,17 @@ g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 void steadyWave::readParmsFromDict(const dictionary& waveDict)
 {
 	N_ = waveDict.lookupOrDefault<int>("N",20);
-	B_.setSize(N_);
-	B_ = 0.0;
-	E_.setSize(N_+1);
-	E_ = 0.0;
+	scalarField Btmp(N_,0.0);
+	scalarField Etmp(N_+1,0.0);
+	E_ = waveDict.lookupOrDefault<scalarField>("E",Etmp);
+	B_ = waveDict.lookupOrDefault<scalarField>("B",Btmp);
 	H_ = waveDict.lookupOrDefault<scalar>("H",0.0);
 	d_ = waveDict.lookupOrDefault<scalar>("d",0.0);
 	uType_ = waveDict.lookupOrDefault<int>("uType",2);
 	nHsteps_ = waveDict.lookupOrDefault<int>("nHSteps",20);
 	pi_ = Foam::acos(-1.0);
 	g_ = waveDict.lookupOrDefault<scalar>("g",9.81);
+	k_ = waveDict.lookupOrDefault<scalar>("k",0.0);
 
 	if ( uType_ == 0 )
 	{
