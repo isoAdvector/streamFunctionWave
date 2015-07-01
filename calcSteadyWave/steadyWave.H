@@ -144,6 +144,7 @@ public:
 
 	void writeDict(word);	
 	
+	void writeDict(fileName);	
 };
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

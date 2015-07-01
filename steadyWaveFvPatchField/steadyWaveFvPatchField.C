@@ -69,31 +69,6 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
 		 << this->patch().name() << " from patch, internal field and dictionary." << endl;
 	
-//	if ( dict.found("readFromWaveDict") && !dict.lookup("readFromWaveDict") ) //reading from constant/waveProperties
-	{
-		dictionary patchWaveProperties;
-		{
-			IOdictionary waveProp
-			(
-				IOobject
-				(
-					"waveProperties",
-					this->db().time().constant(),
-					this->db(),
-					IOobject::MUST_READ,
-					IOobject::NO_WRITE
-				)
-			);
-			patchWaveProperties = waveProp.subDict(this->patch().name());
-		}
-		//This is supposed to set N_, H_, d_, uType, nHSteps_, pi_, g_ by reading from subDict but not sure it does:
-//		steadyWave sw(steadyWave::steadyWave(patchWaveProperties)); 
-		readParmsFromDict(patchWaveProperties);
-
-		K_ = vector(patchWaveProperties.lookupOrDefault<vector>("direction",vector::zero));
-		phi_ = patchWaveProperties.lookupOrDefault<scalar>("phase",0.0);
-	}
-
 	vector gVector = 
 	uniformDimensionedVectorField
 	(
@@ -109,9 +84,55 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	g_ = mag(gVector);
 	up_ = -gVector/g_;
 
-	//Here we should first check if any other field on this patch has already calculated its 
-	calcCoeffs();
-	phi_ = 1.0-zeroPointPhase();
+	IOdictionary waveProp
+	(
+		IOobject
+		(
+			"waveProperties",
+			this->db().time().constant(),
+			this->db(),
+			IOobject::MUST_READ,
+			IOobject::NO_WRITE
+		)
+	);
+	dictionary patchInWave = waveProp.subDict(this->patch().name());
+
+	IOdictionary patchOutWave
+	(
+		IOobject
+		(
+			"steadyWaveOutputFor" + this->patch().name(),
+			this->db().time().constant(),
+			this->db(),
+			IOobject::READ_IF_PRESENT,
+			IOobject::NO_WRITE
+		)
+	);
+	
+	steadyWave inWave(patchInWave);	
+	if ( !patchOutWave.empty() && inWave.sameWave(patchOutWave) )
+	{
+		Info << "Wave already calculated on " << this->patch().name() << "... reusing old calculation" << endl;
+		readParmsFromDict(patchOutWave);
+	}
+	else
+	{
+		Info << "Calculating stream function wave..." << endl;
+		readParmsFromDict(patchInWave);
+		calcCoeffs();
+		fileName fn(patchOutWave.objectPath());
+		writeDict(patchOutWave.objectPath());
+	}
+	
+	K_ = vector(patchInWave.lookupOrDefault<vector>("direction",vector::zero));
+	if ( patchInWave.found("phase") )
+	{
+		phi_ = patchInWave.lookupOrDefault<scalar>("phase",0.0);
+	}
+	else
+	{
+		phi_ = 1.0-zeroPointPhase();
+	}
 	
 	if ( mag(up_ & K_) > SMALL )
 	{
@@ -190,7 +211,7 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
     this->refGrad() = pTraits<Type>::zero;
     this->valueFraction() = 0.0;
 
-	evaluate();
+	updateCoeffs();
 	writeOutMembers();
 }
 

@@ -65,22 +65,6 @@ pi_(Foam::acos(-1.0)),
 g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 {
 	readParmsFromDict(waveDict);
-/*
-	if ( uType_ == 0 )
-	{
-		scalar lambda = readScalar(waveDict.lookup("length"));
-		k_ = 2*pi_/lambda;
-		omega_ = 0.0; //co-moving frame
-		//u1or2 is not used for anything in this case
-	}
-	else if ( (uType_ == 1) || (uType_ == 2) )
-	{
-		//k_ is calculated by fenton()
-		scalar tau = readScalar(waveDict.lookup("period"));
-		omega_ = 2*pi_/tau;
-		u1or2_ = waveDict.lookupOrDefault("u1or2",0.0);
-	}
-*/
 }
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
@@ -467,7 +451,31 @@ void steadyWave::writeDict(word outDictName)
 	}
 	outDict.add("c",omega_/k_,true);
 	outDict.write(OFstream(outDictName)(), false);
+}
 
+void steadyWave::writeDict(fileName outDictName)
+{
+	dictionary outDict(outDictName);
+
+	outDict.add("H",H_,true);
+	outDict.add("d",d_,true);
+	outDict.add("N",N_,true);
+	outDict.add("nHsteps",nHsteps_,true);
+	outDict.add("uType",uType_,true);
+	outDict.add("k",k_,true);
+	outDict.add("omega",omega_,true);
+	outDict.add("u1or2",u1or2_,true);
+	outDict.add("R",R_,true);
+	outDict.add("uBar",uBar_,true);
+	outDict.add("B",B_,true);
+	outDict.add("E",E_,true);
+	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
+	if (omega_ > 0) //Period is infinite 
+	{
+		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
+	}
+	outDict.add("c",omega_/k_,true);
+	outDict.write(OFstream(outDictName)(), false);
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
