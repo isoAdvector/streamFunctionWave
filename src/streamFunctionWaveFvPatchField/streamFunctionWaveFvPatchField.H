@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
-    This file is part of OpenFOAM.
+    This file is an extension of OpenFOAM.
 
     OpenFOAM is free software; you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by the
@@ -55,26 +55,26 @@ Description
 		}
 
 	In the <case>/constant folder there should be a file named waveProperties
-	containing the wave parameters:
+	containing the wave parameters for the patch in a subdictionary named after the patch:
 
+	patchName
+	{
 	//	Name			Value ex.	Description
-		height          0.1;		//Wave heigth
-		period          20;			//Wave period (only used if uType = 1 or 2)
+		H	          0.1;			//Wave heigth
+		T   	       20;			//Wave period (only used if uType = 1 or 2)
 		length			2;			//Wave length (only used if uType = 0)
 		uType           2; 			//Input type. 0: wave lenght specified. 1 or 2: wave period and current specified (default = 2).
 		u1or2           0; 			//Current, Eulerian if uType = 1, Stokes if uType = 2 (default = 0).
 
-		depth           0.3;		//Water depth
+		d       	    0.3;		//Water depth
 		direction       ( 1 0 0 ); 	//Direction of wave vector
-		rampUpTime      0;			//Initial wave height ramp up time
 		seabedHeight	-0.3; 		//Vertical coordinate of seabed on patch (default = lowest point on patch)
 		waveMakerPos	-3.0; 		//Horizontal position of wave maker (default = backmost point on patch)
-		phase			.1;			//Phase of wave, theta = k*x+omega*t + 2*pi*phase (default = 0.0)
+		phase			.1;			//Phase of wave, theta = k*x+omega*t + 2*pi*phase (default: the value that gives eta = d)
 
-		nModes          40; 		//Number of Fourier modes in expansion (default = 30)
-		nHeightSteps    20; 		//Number of height steps in search for wave solution (default = 20)
-		rootTolerance	1e-7; 		//Tolerance in multidimensional root finding algorithm (default = 1e-7)
-		rootMaxIter		1000; 		//Maximum number of iterations in multidimensional root finding (default = 1000)
+		N          40; 		//Number of Fourier modes in expansion (default = 30)
+		nHSteps    20; 		//Number of height steps in search for wave solution (default = 20)
+	}
 	
 	This folder must also contain a file named g containing the gravitation 
 	vector, e.g.:
@@ -84,13 +84,13 @@ Description
 
 	The file <case>/system/controlDict must end with the line:
 	
-		libs ( "libSteadyWaveBC.so" "libOpenFOAM.so" );	
+		libs ( "libstreamFunctionWaveFvPatchField.so" "libOpenFOAM.so" );	
 		
 SourceFiles
     streamFunctionWaveFvPatchField.C
 
 Author
-	Johan Roenby, DHI Water & Environment.
+	Johan Roenby, DHI.
 
 \*---------------------------------------------------------------------------*/
 

@@ -21,7 +21,7 @@ d    50;
 
 T    10;
 
-u1or2    0; 	//default = 0, not used if uType = 0
+u    0; 	//default = 0, not used if uType = 0
 
 uType    2; 	//default = 2
 

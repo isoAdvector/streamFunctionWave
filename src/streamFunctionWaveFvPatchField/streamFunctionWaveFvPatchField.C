@@ -99,7 +99,7 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 	dictionary patchInWave = waveProp.subDict(this->patch().name());
 
 	word filnam("streamFunctionWaveOutputFor" + this->patch().name());
-	fileName outDictName(this->db().time().constant()/filnam);
+	fileName outDictName(this->db().time().caseConstant()/filnam);
 
 	bool calcWave(true);
 	streamFunctionWave inWave(patchInWave);	
@@ -208,7 +208,7 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
     this->refGrad() = pTraits<Type>::zero;
     this->valueFraction() = 0.0;
 
-	writeOutMembers();
+//	writeOutMembers();
 	evaluate();
 }
 
@@ -223,8 +223,9 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 :
     mixedFvPatchField<Type>(ptf, p, iF, mapper)
 {
-	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
-		 << this->patch().name() << " by mapping given streamFunctionWaveFvPatchField onto a new patch." << endl;
+//	These lines made code crash when run in parallel:
+//	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+//		 << this->patch().name() << " by mapping given streamFunctionWaveFvPatchField onto a new patch." << endl;
 	copyInit(ptf);
 }
 
@@ -482,7 +483,7 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 	
 	uType_ = ptf.uType_;
 	nHsteps_ = ptf.nHsteps_;
-	u1or2_ = ptf.u1or2_;
+	u_ = ptf.u_;
 	R_ = ptf.R_;
 	up_ = ptf.up_;	
 
@@ -493,27 +494,29 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 template<class Type>
 void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
 {		
-//	Info << "Entering write function and doing fvPatchField<Type>::write(os);" << endl;
+	Info << "Entering write function and doing fvPatchField<Type>::write(os);" << endl;
 
     fvPatchField<Type>::write(os);
-//	os.writeKeyword("d") << d_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("k") << k_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("omega") << omega_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("uBar") << uBar_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("E") << E_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("B") << B_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("direction") << K_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("phase") << phi_ << token::END_STATEMENT << nl;
-//	os.writeKeyword("rampUpTime") << rampUpTime_ << token::END_STATEMENT << nl;
+	os.writeKeyword("H") << H_ << token::END_STATEMENT << nl;
+	os.writeKeyword("d") << d_ << token::END_STATEMENT << nl;
+	if (omega_ > 0) //Period is finite 
+	{
+		os.writeKeyword("T") << (2*pi_/omega_) << token::END_STATEMENT << nl;
+	}
+	os.writeKeyword("uType") << uType_ << token::END_STATEMENT << nl;
+	os.writeKeyword("u") << u_ << token::END_STATEMENT << nl;
+	os.writeKeyword("N") << N_ << token::END_STATEMENT << nl;
+	os.writeKeyword("nHsteps") << nHsteps_ << token::END_STATEMENT << nl;
+	os.writeKeyword("pi") << pi_ << token::END_STATEMENT << nl;
+	os.writeKeyword("g") << g_ << token::END_STATEMENT << nl;
+	os.writeKeyword("k") << k_ << token::END_STATEMENT << nl;
+	os.writeKeyword("R") << R_ << token::END_STATEMENT << nl;
+	os.writeKeyword("uBar") << uBar_ << token::END_STATEMENT << nl;
+	os.writeKeyword("E") << E_ << token::END_STATEMENT << nl;
+	os.writeKeyword("B") << B_ << token::END_STATEMENT << nl;
+	os.writeKeyword("direction") << K_ << token::END_STATEMENT << nl;
+	os.writeKeyword("phase") << phi_ << token::END_STATEMENT << nl;
 
-/*    os.writeKeyword("depth")
-        << d_ << token::END_STATEMENT << nl;
-    os.writeKeyword("period")
-        << 2*pi_/omega_ << token::END_STATEMENT << nl;
-    os.writeKeyword("length")
-        << 2*pi_/k_ << token::END_STATEMENT << nl;
- */
-//	Info << "Doing this->writeEntry('value', os);" << endl;
     this->writeEntry("value", os);
 }
 
@@ -539,7 +542,7 @@ void streamFunctionWaveFvPatchField<Type>::writeOutMembers()
 	Info << "k_ " << k_ << endl;
 	Info << "omega_ " << omega_ << endl;
 
-	Info << "u1or2_ " << u1or2_ << endl;
+	Info << "u_ " << u_ << endl;
 	Info << "uBar_ " << uBar_ << endl;
 	Info << "R_ " << R_ << endl;
 	Info << "E_ " << E_ << endl;

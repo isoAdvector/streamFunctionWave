@@ -70,26 +70,23 @@ protected:
 	scalar d_;
 			
 	//- Current type
-	int uType_; //0 for wavelength input, 1 for wave period and "Eulerian" current, 2 for wave period and "Stokes" current
+	label uType_; //0 for wavelength input, 1 for wave period and "Eulerian" current, 2 for wave period and "Stokes" current
 	
 	//- Number of steps to reach final wave height
-	int nHsteps_;
+	label nHsteps_;
 				
-	//- Residual tolerance in multidimensional root finding 
-//	scalar rootTolerance_;
-
 	//- 3.1415...
 	scalar pi_;
 	
 	//- Gravitational acceleration
 	scalar g_;
 
-	//- Current
-	scalar u1or2_;
+	//- Current - either u1 or u2 - type determined by uType_
+	scalar u_;
 
 	//- Wave number k = 2*pi/lambda
 	scalar k_;
-							
+
 	//- Angular wave frequency
 	scalar omega_;
 	
@@ -98,13 +95,14 @@ protected:
 	
 	//- Bernoulli constant
 	scalar R_;
-		
+
 	void findRoot(scalarField& X, scalar h, scalar lort);
 
 	scalarField fun(const scalarField& X, scalar h, scalar lort);
 	
 	scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort);
 
+	//- Find x/lambda value where eta = d
 	scalar zeroPointPhase();
 
 public:
@@ -142,7 +140,6 @@ public:
 		const scalar& phi
 	);
 
-//	void writeDict(word);	
 	
 	void writeDict(fileName);	
 

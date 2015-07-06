@@ -40,7 +40,7 @@ Usage
 	Fourier coefficients. See waveProperties for an example.
 
 Author
-    Johan Roenby, DHI, all rights reserved
+    Johan Roenby, DHI
 
 \*---------------------------------------------------------------------------*/
 

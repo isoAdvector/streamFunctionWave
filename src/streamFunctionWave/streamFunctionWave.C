@@ -44,7 +44,7 @@ uType_(0),
 nHsteps_(0),
 pi_(0),
 g_(0),
-u1or2_(0),
+u_(0),
 k_(0),
 omega_(0),
 uBar_(0),
@@ -91,14 +91,14 @@ void streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
 		scalar lambda = readScalar(waveDict.lookup("lambda"));
 		k_ = 2*pi_/lambda;
 		omega_ = 0.0; //co-moving frame
-		//u1or2 is not used for anything in this case
+		//u is not used for anything in this case
 	}
 	else if ( (uType_ == 1) || (uType_ == 2) )
 	{
 		//k_ is calculated by fenton()
 		scalar tau = readScalar(waveDict.lookup("T"));
 		omega_ = 2*pi_/tau;
-		u1or2_ = waveDict.lookupOrDefault("u1or2",0.0);
+		u_ = waveDict.lookupOrDefault("u",0.0);
 	}	
 }
 
@@ -109,9 +109,9 @@ bool streamFunctionWave::sameWave(const dictionary& waveDict)
 	
 	scalar H(readScalar(waveDict.lookup("H")));
 	scalar d(readScalar(waveDict.lookup("d")));
-	int N(readScalar(waveDict.lookup("N")));
-	int nHsteps(readScalar(waveDict.lookup("nHsteps")));
-	int uType(readInt(waveDict.lookup("uType")));
+	label N(readScalar(waveDict.lookup("N")));
+	label nHsteps(readScalar(waveDict.lookup("nHsteps")));
+	label uType(readInt(waveDict.lookup("uType")));
 
 	scalar prec(Foam::pow(10.0,1-scalar(IOstream::precision_)));
 		
@@ -122,7 +122,7 @@ bool streamFunctionWave::sameWave(const dictionary& waveDict)
 
 	scalar k(readScalar(waveDict.lookup("k")));
 	scalar omega(readScalar(waveDict.lookup("omega")));
-	scalar u1or2(readScalar(waveDict.lookup("u1or2")));		
+	scalar u(readScalar(waveDict.lookup("u")));		
 		
 	if ( uType_ == 0 )
 	{
@@ -131,7 +131,7 @@ bool streamFunctionWave::sameWave(const dictionary& waveDict)
 	else if ( uType_ == 1 || uType_ == 2 )
 	{
 		sameWave = sameWave && (mag(omega - omega_) < prec);
-		sameWave = sameWave && (mag(u1or2 - u1or2_) < prec);
+		sameWave = sameWave && (mag(u - u_) < prec);
 	}
 	else
 	{
@@ -151,13 +151,13 @@ void streamFunctionWave::calcCoeffs()
 		scalar lambda = 2*pi_/k_;
 		lort = lambda/d_; //Nondimensionalised wave length
 		omega_ = 0.0;
-		//u1or2_ not used in this case
+		//u_ not used in this case
 	} else
 	{
 		scalar tau = 2*pi_/omega_;
 		lort = tau * Foam::sqrt(g/d_); //Nondimensionalised wave period T*sqrt(g/d)
 		k_ = Foam::pow(omega_,2.0)/ ( g * Foam::pow( Foam::tanh( Foam::pow( omega_*Foam::sqrt(d_/g) , 3.0/2.0 ) ) , 2.0/3.0) );
-		u1or2_ /= Foam::sqrt(g*d_);
+		u_ /= Foam::sqrt(g*d_);
 	}
 	
 //	Info << "Specifying initial guess for variables from 1st order theory (Fenton 1999, p. 14)" << endl; 
@@ -306,10 +306,10 @@ scalarField streamFunctionWave::fun(const scalarField& x, scalar h, scalar lort)
 	else {
 		scalar t = lort;
 		if (uType_ == 1) {
-			lastEq = Foam::sqrt(kd)*u + kd*u1or2_ - 2.0*pi_/t; //Equation for mean current in laboratory frame (3.15) in Fenton 1999
+			lastEq = Foam::sqrt(kd)*u + kd*u_ - 2.0*pi_/t; //Equation for mean current in laboratory frame (3.15) in Fenton 1999
 		}
 		else if (uType_ == 2) {
-			lastEq = q/Foam::sqrt(kd) + kd*u1or2_ - 2.0*pi_/t; //Equation for mass transport velocity (3.16) in Fenton 1999
+			lastEq = q/Foam::sqrt(kd) + kd*u_ - 2.0*pi_/t; //Equation for mass transport velocity (3.16) in Fenton 1999
 		}
 	}	
 
@@ -430,33 +430,6 @@ Foam::scalarField streamFunctionWave::getV
 	return v;
 }
 
-/*	
-void streamFunctionWave::writeDict(word outDictName)
-{
-	dictionary outDict(outDictName);
-
-	outDict.add("H",H_,true);
-	outDict.add("d",d_,true);
-	outDict.add("N",N_,true);
-	outDict.add("nHsteps",nHsteps_,true);
-	outDict.add("uType",uType_,true);
-	outDict.add("k",k_,true);
-	outDict.add("omega",omega_,true);
-	outDict.add("u1or2",u1or2_,true);
-	outDict.add("R",R_,true);
-	outDict.add("uBar",uBar_,true);
-	outDict.add("B",B_,true);
-	outDict.add("E",E_,true);
-	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
-	if (omega_ > 0) //Period is infinite 
-	{
-		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
-	}
-	outDict.add("c",omega_/k_,true);
-
-	outDict.write(OFstream(outDictName)(), false);
-}
-*/
 
 void streamFunctionWave::writeDict(fileName outDictName)
 {
@@ -465,22 +438,22 @@ void streamFunctionWave::writeDict(fileName outDictName)
 
 	outDict.add("H",H_,true);
 	outDict.add("d",d_,true);
+	if (omega_ > 0) //Period is finite 
+	{
+		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
+	}
+	outDict.add("uType",uType_,true);
+	outDict.add("u",u_,true);
 	outDict.add("N",N_,true);
 	outDict.add("nHsteps",nHsteps_,true);
-	outDict.add("uType",uType_,true);
+	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
 	outDict.add("k",k_,true);
 	outDict.add("omega",omega_,true);
-	outDict.add("u1or2",u1or2_,true);
+	outDict.add("c",omega_/k_,true);
 	outDict.add("R",R_,true);
 	outDict.add("uBar",uBar_,true);
 	outDict.add("B",B_,true);
 	outDict.add("E",E_,true);
-	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
-	if (omega_ > 0) //Period is infinite 
-	{
-		outDict.add("T",2*Foam::acos(-1.0)/omega_,true);
-	}
-	outDict.add("c",omega_/k_,true);
 
 	outDict.write(OFstream(outDictName)(), false);
 	
