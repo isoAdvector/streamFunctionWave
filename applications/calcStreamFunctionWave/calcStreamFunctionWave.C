@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
-    This file is part of OpenFOAM.
+    This file is an extension of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    calcSteadyWave
+    calcStreamFuncionWave
 
 Description
     Calculates Fourier coefficients for a stream function theory wave.
@@ -34,7 +34,7 @@ Description
 	Equation numbering in the source files refer to this paper.
 
 Usage
-    - calcSteadyWave inputDict outputDict
+    - calcStreamFunctinoWave inputDict outputDict
 	
 	where inputDict contains the necessary parameters to calculate the 
 	Fourier coefficients. See waveProperties for an example.
@@ -48,7 +48,7 @@ Author
 #include "IFstream.H"
 #include "dictionary.H"
 #include "includeEntry.H"
-#include "steadyWave.H"
+#include "streamFunctionWave.H"
 
 using namespace Foam;
 
@@ -58,8 +58,8 @@ int main(int argc, char *argv[])
 {	
     argList::addNote
     (
-        "Read the specified steadyWaveDict input file, \n"
-		"check if identical to steadyWaveDict output file \n"
+        "Read the specified streamFunctionWaveDict input file, \n"
+		"check if identical to streamFunctionWaveDict output file \n"
 		"(if this exists) and if not calculating wave Fourier \n"
 		"coefficients and updating output file."
     );
@@ -72,7 +72,7 @@ int main(int argc, char *argv[])
 
     const string inDictName = args[1];
     dictionary inDict(IFstream(inDictName)(), true);
-	steadyWave inWave(inDict);
+	streamFunctionWave inWave(inDict);
 
     const string outDictName = args[2];	
 	

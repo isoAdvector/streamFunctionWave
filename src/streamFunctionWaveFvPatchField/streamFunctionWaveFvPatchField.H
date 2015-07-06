@@ -23,7 +23,7 @@ License
     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 Class
-    steadyWaveFvPatchField
+    streamFunctionWaveFvPatchField
 
 Description
 	This is an implementation of the Fourier approximation method for finding
@@ -41,7 +41,7 @@ Description
 
 		patchName            
 		{
-			type            steadyWave;
+			type            streamFunctionWave;
 			value			uniform (0 0 0);
 		}
 
@@ -50,7 +50,7 @@ Description
 
 		patchName            
 		{
-			type            steadyWave;
+			type            streamFunctionWave;
 			value			uniform 0;
 		}
 
@@ -87,19 +87,19 @@ Description
 		libs ( "libSteadyWaveBC.so" "libOpenFOAM.so" );	
 		
 SourceFiles
-    steadyWaveFvPatchField.C
+    streamFunctionWaveFvPatchField.C
 
 Author
 	Johan Roenby, DHI Water & Environment.
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef steadyWaveFvPatchField_H
-#define steadyWaveFvPatchField_H
+#ifndef streamFunctionWaveFvPatchField_H
+#define streamFunctionWaveFvPatchField_H
 
 #include "mixedFvPatchFields.H"
 #include "uniformDimensionedFields.H" //gravity type of field
-#include "steadyWave.H"
+#include "streamFunctionWave.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -107,14 +107,14 @@ namespace Foam
 {
 
 /*---------------------------------------------------------------------------*\
-                      Class steadyWaveFvPatchField Declaration
+                      Class streamFunctionWaveFvPatchField Declaration
 \*---------------------------------------------------------------------------*/
 
 template<class Type>
-class steadyWaveFvPatchField
+class streamFunctionWaveFvPatchField
 :
     public mixedFvPatchField<Type>,
-	public steadyWave
+	public streamFunctionWave
 {
 protected:
 		
@@ -142,38 +142,38 @@ protected:
     // Protected member functions
 				
 		//Initialize member data from other patch (avoid constructor code duplication)
-		void copyInit(const steadyWaveFvPatchField<Type>&);
+		void copyInit(const streamFunctionWaveFvPatchField<Type>&);
 								
 		void writeOutMembers();
 
 public:
 
     //- Runtime type information
-    TypeName("steadyWave");
+    TypeName("streamFunctionWave");
 
 
     // Constructors
 
         //- Construct from patch and internal field
-        steadyWaveFvPatchField
+        streamFunctionWaveFvPatchField
         (
             const fvPatch&,
             const DimensionedField<Type, volMesh>&
         );
 
         //- Construct from patch, internal field and dictionary
-        steadyWaveFvPatchField
+        streamFunctionWaveFvPatchField
         (
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
             const dictionary&
         );
 
-        //- Construct by mapping given steadyWaveFvPatchField
+        //- Construct by mapping given streamFunctionWaveFvPatchField
         //  onto a new patch
-        steadyWaveFvPatchField
+        streamFunctionWaveFvPatchField
         (
-            const steadyWaveFvPatchField<Type>&,
+            const streamFunctionWaveFvPatchField<Type>&,
             const fvPatch&,
             const DimensionedField<Type, volMesh>&,
             const fvPatchFieldMapper&
@@ -184,14 +184,14 @@ public:
         {
             return tmp<fvPatchField<Type> >
             (
-                new steadyWaveFvPatchField<Type>(*this)
+                new streamFunctionWaveFvPatchField<Type>(*this)
             );
         }
 
         //- Construct as copy setting internal field reference
-        steadyWaveFvPatchField
+        streamFunctionWaveFvPatchField
         (
-            const steadyWaveFvPatchField<Type>&,
+            const streamFunctionWaveFvPatchField<Type>&,
             const DimensionedField<Type, volMesh>&
         );
 
@@ -203,7 +203,7 @@ public:
         {
             return tmp<fvPatchField<Type> >
             (
-                new steadyWaveFvPatchField<Type>(*this, iF)
+                new streamFunctionWaveFvPatchField<Type>(*this, iF)
             );
         }
 
@@ -239,7 +239,7 @@ public:
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 #ifdef NoRepository
-#   include "steadyWaveFvPatchField.C"
+#   include "streamFunctionWaveFvPatchField.C"
 #endif
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //

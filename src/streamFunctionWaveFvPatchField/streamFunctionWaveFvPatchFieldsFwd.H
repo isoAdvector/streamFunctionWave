@@ -23,14 +23,14 @@ License
     Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA
 
 Class
-    steadyWaveFvPatchField
+    streamFunctionWaveFvPatchField
 
 Description
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef steadyWaveFvPatchFieldsFwd_H
-#define steadyWaveFvPatchFieldsFwd_H
+#ifndef streamFunctionWaveFvPatchFieldsFwd_H
+#define streamFunctionWaveFvPatchFieldsFwd_H
 
 #include "fieldTypes.H"
 
@@ -41,9 +41,9 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-template<class Type> class steadyWaveFvPatchField;
+template<class Type> class streamFunctionWaveFvPatchField;
 
-makePatchTypeFieldTypedefs(steadyWave)
+makePatchTypeFieldTypedefs(streamFunctionWave)
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

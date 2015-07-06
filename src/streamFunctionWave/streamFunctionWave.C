@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
-    This file is part of OpenFOAM.
+    This file is an extension of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "steadyWave.H"
+#include "streamFunctionWave.H"
 #include "OFstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -33,7 +33,7 @@ namespace Foam
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-steadyWave::steadyWave()
+streamFunctionWave::streamFunctionWave()
 :
 N_(0),
 B_(0,0.0),
@@ -52,7 +52,7 @@ R_(0)
 {}
 
 
-steadyWave::steadyWave(const dictionary& waveDict)
+streamFunctionWave::streamFunctionWave(const dictionary& waveDict)
 :
 N_(waveDict.lookupOrDefault<int>("N",20)),
 B_(N_,0.0),
@@ -69,7 +69,7 @@ g_(waveDict.lookupOrDefault<scalar>("g",9.81))
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-void steadyWave::readParmsFromDict(const dictionary& waveDict)
+void streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
 {
 	N_ = waveDict.lookupOrDefault<int>("N",20);
 	scalarField Btmp(N_,0.0);
@@ -103,7 +103,7 @@ void steadyWave::readParmsFromDict(const dictionary& waveDict)
 }
 
 
-bool steadyWave::sameWave(const dictionary& waveDict)
+bool streamFunctionWave::sameWave(const dictionary& waveDict)
 {
 	bool sameWave(true);
 	
@@ -141,7 +141,7 @@ bool steadyWave::sameWave(const dictionary& waveDict)
 	return sameWave;
 }
 
-void steadyWave::calcCoeffs()
+void streamFunctionWave::calcCoeffs()
 {
 	scalar lort, g = mag(g_);
 
@@ -236,7 +236,7 @@ void steadyWave::calcCoeffs()
 	Info << "Done calculating stream function wave" << endl;
 }
 
-void steadyWave::findRoot(scalarField& X, scalar h, scalar lort)
+void streamFunctionWave::findRoot(scalarField& X, scalar h, scalar lort)
 {
 	scalar tol(1e-5); //HARDCODED TOLERANCE
 	scalar err(2*tol);
@@ -253,7 +253,7 @@ void steadyWave::findRoot(scalarField& X, scalar h, scalar lort)
 	}
 }
 
-scalarField steadyWave::fun(const scalarField& x, scalar h, scalar lort)
+scalarField streamFunctionWave::fun(const scalarField& x, scalar h, scalar lort)
 {
 
 //	Info << "Converting from x vector into named variables" << endl;
@@ -327,7 +327,7 @@ scalarField steadyWave::fun(const scalarField& x, scalar h, scalar lort)
 	return F;
 }
 
-scalarSquareMatrix steadyWave::jac(const scalarField& x, scalar h, scalar lort)
+scalarSquareMatrix streamFunctionWave::jac(const scalarField& x, scalar h, scalar lort)
 {
 	scalar d(1e-10); //HARDCODED STEP SIZE
 	scalarSquareMatrix J(x.size());
@@ -344,7 +344,7 @@ scalarSquareMatrix steadyWave::jac(const scalarField& x, scalar h, scalar lort)
 	return J;
 }
 
-Foam::scalar steadyWave::zeroPointPhase()
+Foam::scalar streamFunctionWave::zeroPointPhase()
 {
 	scalar lambda = 2.0*pi_/k_;
 	scalarField x0(1,0.0);
@@ -371,7 +371,7 @@ Foam::scalar steadyWave::zeroPointPhase()
 	return (xMean[0]/lambda);
 }
 
-Foam::scalarField steadyWave::getEta
+Foam::scalarField streamFunctionWave::getEta
 (
 	const scalarField& x,
 	const scalar& t,
@@ -387,7 +387,7 @@ Foam::scalarField steadyWave::getEta
 	return eta;
 }
 
-Foam::scalarField steadyWave::getU
+Foam::scalarField streamFunctionWave::getU
 (
 	const scalarField& x,
 	const scalarField& y,
@@ -410,7 +410,7 @@ Foam::scalarField steadyWave::getU
 }
 
 
-Foam::scalarField steadyWave::getV
+Foam::scalarField streamFunctionWave::getV
 (
 	const scalarField& x,
 	const scalarField& y,
@@ -431,7 +431,7 @@ Foam::scalarField steadyWave::getV
 }
 
 	
-void steadyWave::writeDict(word outDictName)
+void streamFunctionWave::writeDict(word outDictName)
 {
 	dictionary outDict(outDictName);
 
@@ -457,7 +457,7 @@ void steadyWave::writeDict(word outDictName)
 	outDict.write(OFstream(outDictName)(), false);
 }
 
-void steadyWave::writeDict(fileName outDictName)
+void streamFunctionWave::writeDict(fileName outDictName)
 {
 	Info << "Enter writeDict(fileName outDictName) " << endl;
 	dictionary outDict(outDictName);

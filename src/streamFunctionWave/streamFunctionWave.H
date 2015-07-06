@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
-    This file is part of OpenFOAM.
+    This file is an extension of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Class
-    Foam::steadyWave
+    Foam::streamFunctionWave
 
 Description
     Calculates Fourier coefficients for a stream function theory wave.
@@ -34,15 +34,15 @@ Description
 	Equation numbering in the source files refer to this paper.
 	
 SourceFiles
-    steadyWave.C
+    streamFunctionWave.C
 	
 Author
 	Johan Roenby, DHI
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef steadyWave_H
-#define steadyWave_H
+#ifndef streamFunctionWave_H
+#define streamFunctionWave_H
 
 #include "scalarMatrices.H"
 
@@ -51,7 +51,7 @@ Author
 namespace Foam
 {
 
-class steadyWave
+class streamFunctionWave
 {
 protected:
 	//- Number of Fourier modes
@@ -109,9 +109,9 @@ protected:
 
 public:
 
-	steadyWave();
+	streamFunctionWave();
 
-	steadyWave(const dictionary&);
+	streamFunctionWave(const dictionary&);
 	
 	void readParmsFromDict(const dictionary&);
 

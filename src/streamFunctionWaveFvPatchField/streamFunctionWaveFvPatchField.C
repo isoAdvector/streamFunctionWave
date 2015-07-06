@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
-    This file is part of OpenFOAM.
+    This file is an extension of OpenFOAM.
 
     OpenFOAM is free software; you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by the
@@ -24,7 +24,7 @@ License
 
 \*---------------------------------------------------------------------------*/
 
-#include "steadyWaveFvPatchField.H"
+#include "streamFunctionWaveFvPatchField.H"
 #include "surfaceFields.H" //using lookupPatchField to get flux
 #include "volFields.H"
 #include "IFstream.H"
@@ -38,7 +38,7 @@ namespace Foam
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 template<class Type>
-steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
+streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 (
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF
@@ -58,7 +58,7 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 }
 
 template<class Type>
-steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
+streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 (
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
@@ -98,11 +98,11 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 	);
 	dictionary patchInWave = waveProp.subDict(this->patch().name());
 
-	word filnam("steadyWaveOutputFor" + this->patch().name());
+	word filnam("streamFunctionWaveOutputFor" + this->patch().name());
 	fileName outDictName(this->db().time().constant()/filnam);
 
 	bool calcWave(true);
-	steadyWave inWave(patchInWave);	
+	streamFunctionWave inWave(patchInWave);	
 	if ( IFstream(outDictName) )
 	{
 		dictionary oldOutDict(IFstream(outDictName)(), true);
@@ -213,9 +213,9 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 }
 
 template<class Type>
-steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
+streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 (
-    const steadyWaveFvPatchField<Type>& ptf,
+    const streamFunctionWaveFvPatchField<Type>& ptf,
     const fvPatch& p,
     const DimensionedField<Type, volMesh>& iF,
     const fvPatchFieldMapper& mapper
@@ -224,15 +224,15 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
     mixedFvPatchField<Type>(ptf, p, iF, mapper)
 {
 	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
-		 << this->patch().name() << " by mapping given steadyWaveFvPatchField onto a new patch." << endl;
+		 << this->patch().name() << " by mapping given streamFunctionWaveFvPatchField onto a new patch." << endl;
 	copyInit(ptf);
 }
 
 
 template<class Type>
-steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
+streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 (
-    const steadyWaveFvPatchField<Type>& ptf,
+    const streamFunctionWaveFvPatchField<Type>& ptf,
     const DimensionedField<Type, volMesh>& iF
 )
 :
@@ -248,9 +248,9 @@ steadyWaveFvPatchField<Type>::steadyWaveFvPatchField
 
 // Evaluate the field on the patch
 template<class Type>
-void steadyWaveFvPatchField<Type>::evaluate()
+void streamFunctionWaveFvPatchField<Type>::evaluate()
 {
-//	Info<< "Enter steadyWaveFvPatchField<Type>::evaluate()" << endl;
+//	Info<< "Enter streamFunctionWaveFvPatchField<Type>::evaluate()" << endl;
     if (!this->updated())
     {
         this->updateCoeffs();
@@ -272,9 +272,9 @@ void steadyWaveFvPatchField<Type>::evaluate()
 
 // Update the coefficients associated with the patch field
 template<class Type>
-void steadyWaveFvPatchField<Type>::updateCoeffs()
+void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 {
-//	Info<< "Enter steadyWaveFvPatchField<Type>::updateCoeffs()" << endl;
+//	Info<< "Enter streamFunctionWaveFvPatchField<Type>::updateCoeffs()" << endl;
 	
 	if (this->updated())
     {
@@ -381,7 +381,7 @@ void steadyWaveFvPatchField<Type>::updateCoeffs()
 
 // Setting velocity field
 template<> 
-void steadyWaveFvPatchField<vector>::setField
+void streamFunctionWaveFvPatchField<vector>::setField
 (
 	Field<vector> const& refVal, 
 	const scalarField& alpha, 
@@ -389,7 +389,7 @@ void steadyWaveFvPatchField<vector>::setField
 	const scalarField& v
 )
 {			
-//	Info << "Enter steadyWaveFvPatchField<vector>::setField" << endl;
+//	Info << "Enter streamFunctionWaveFvPatchField<vector>::setField" << endl;
 	this->refValue() = u*K_/mag(K_) + v*up_;
 	this->refGrad() = vector::zero;
 	this->valueFraction() = 1.0;
@@ -398,7 +398,7 @@ void steadyWaveFvPatchField<vector>::setField
 
 // Setting volume fraction (alpha1) and pressure (pd etc) field
 template<> 
-void steadyWaveFvPatchField<scalar>::setField
+void streamFunctionWaveFvPatchField<scalar>::setField
 (
 	Field<scalar> const& iF, 
 	const scalarField& alpha, 
@@ -406,7 +406,7 @@ void steadyWaveFvPatchField<scalar>::setField
 	const scalarField& v
 )
 {	
-//	Info << "Enter steadyWaveFvPatchField<scalar>::setField" << endl;
+//	Info << "Enter streamFunctionWaveFvPatchField<scalar>::setField" << endl;
 
 	const word& fieldName = this->dimensionedInternalField().name();
 
@@ -444,7 +444,7 @@ void steadyWaveFvPatchField<scalar>::setField
 }
 
 template<class Type>
-void steadyWaveFvPatchField<Type>::setField
+void streamFunctionWaveFvPatchField<Type>::setField
 (
 	Field<Type> const& refVal, 
 	const scalarField& alpha, 
@@ -452,15 +452,15 @@ void steadyWaveFvPatchField<Type>::setField
 	const scalarField& v
 )
 {
-//	Info << "Enter steadyWaveFvPatchField<Type>::setField" << endl;
+//	Info << "Enter streamFunctionWaveFvPatchField<Type>::setField" << endl;
 //   dummy code executed if setField is called with other Type than scalar or vector
 }   
 
 // Initialising 
 template<class Type>
-void steadyWaveFvPatchField<Type>::copyInit(const steadyWaveFvPatchField<Type>& ptf)
+void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)
 {
-//	Info << "Enter steadyWaveFvPatchField<Type>::copyInit(const steadyWaveFvPatchField<Type>& ptf)" << endl;
+//	Info << "Enter streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 	N_ = ptf.N_;	
 	H_ = ptf.H_;
 	d_ = ptf.d_;
@@ -491,7 +491,7 @@ void steadyWaveFvPatchField<Type>::copyInit(const steadyWaveFvPatchField<Type>& 
 
 // Write
 template<class Type>
-void steadyWaveFvPatchField<Type>::write(Ostream& os) const
+void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
 {		
 //	Info << "Entering write function and doing fvPatchField<Type>::write(os);" << endl;
 
@@ -518,9 +518,9 @@ void steadyWaveFvPatchField<Type>::write(Ostream& os) const
 }
 
 template<class Type>
-void steadyWaveFvPatchField<Type>::writeOutMembers()
+void streamFunctionWaveFvPatchField<Type>::writeOutMembers()
 {
-//	Info << "Enter  steadyWaveFvPatchField<Type>::writeOutMembers()" << endl;
+//	Info << "Enter  streamFunctionWaveFvPatchField<Type>::writeOutMembers()" << endl;
 	Info << "N_ " << N_ << endl;
 	Info << "H_ " << H_ << endl;
 	Info << "d_ " << d_ << endl;
