@@ -15,27 +15,25 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-height          5;
+H    5;
 
-depth           50;
+d    50;
 
-period          10;
+T    10;
 
-direction       ( 1 0 0 );
+u1or2    0; 	//default = 0, not used if uType = 0
 
-u1or2       	0; 	//default = 0, not used if uType = 0
+uType    2; 	//default = 2
 
-uType      		2; 	//default = 2
+N    35; 	//default = 30
 
-nModes          35; 	//default = 30
+nHSteps    20; 	//default = 20
 
-nHeightSteps    20; 	//default = 20
+//length    2; 	//Must be specified if uType = 0, else not used
 
-//length		2; 	//Must be specified if uType = 0, else not used
+//seabedHeight    -0.3; 	//default = lowest point on patch
 
-//seabedHeight	-0.3; 	//default = lowest point on patch
-
-//waveMakerPos	0; 	//default = backmost point on patch
+//waveMakerPos    0; 	//default = backmost point on patch
 
 // ************************************************************************* //
 
