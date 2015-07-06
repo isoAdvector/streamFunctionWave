@@ -1,0 +1,4 @@
+EXE_INC =
+    -I../src/streamFunctionWave
+
+/* EXE_LIBS = */
