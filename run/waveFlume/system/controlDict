@@ -56,9 +56,7 @@ maxAlphaCo      0.2;
 
 maxDeltaT       0.2;
 
-//libs ( "libFentonWaveBC.so" "libOpenFOAM.so" "/home/dhi/OpenFOAM/site/gsl/1.15/lib/libgsl.so" "/home/dhi/OpenFOAM/site/gsl/1.15/lib/libgslcblas.so" );
-//libs ( "libFentonWaveBC.so" "libOpenFOAM.so" "/home/dhi/OpenFOAM/site/gsl/1.15/lib/libgsl.so" "${GSL_DIR}/lib/libgslcblas.so" );
-libs ( "libsteadyWaveFvPatchField.so" "libOpenFOAM.so" );
+libs ( "libstreamFunctionWaveFvPatchField.so" "libOpenFOAM.so" );
 
 functions
 (
