@@ -1,4 +1,4 @@
-steadyWaveFvPatchFields.C
-../calcSteadyWave/steadyWave.C
+streamFunctionWaveFvPatchFields.C
+../streamFunctionWave/streamFunctionWave.C
 
-LIB = $(FOAM_USER_LIBBIN)/libsteadyWaveFvPatchField
+LIB = $(FOAM_USER_LIBBIN)/libstreamFunctionWaveFvPatchField
