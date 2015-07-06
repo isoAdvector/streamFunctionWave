@@ -430,7 +430,7 @@ Foam::scalarField streamFunctionWave::getV
 	return v;
 }
 
-	
+/*	
 void streamFunctionWave::writeDict(word outDictName)
 {
 	dictionary outDict(outDictName);
@@ -456,6 +456,7 @@ void streamFunctionWave::writeDict(word outDictName)
 
 	outDict.write(OFstream(outDictName)(), false);
 }
+*/
 
 void streamFunctionWave::writeDict(fileName outDictName)
 {

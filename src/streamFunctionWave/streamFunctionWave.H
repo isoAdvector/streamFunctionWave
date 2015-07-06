@@ -142,7 +142,7 @@ public:
 		const scalar& phi
 	);
 
-	void writeDict(word);	
+//	void writeDict(word);	
 	
 	void writeDict(fileName);	
 
