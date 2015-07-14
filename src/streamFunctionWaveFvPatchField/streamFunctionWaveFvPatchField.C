@@ -48,7 +48,7 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 {
 	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
 		 << this->patch().name() << " from patch and internal field." << endl;
-	Info<< "STEADYWAVEFVPATCHFIELD WARNING: THIS CONSTRUCTOR CURRENTLY DOES NOT INITIALISE PATCH PROPERLY!!!" << endl;
+	Info<< "Warning: This streamFunctionWave constructor currently just sets refValue and refGrad to zero and valueFraction to 1!" << endl;
 //	writeOutMembers();
 
 	//Initialising to fixed value boundary with zero as the value
@@ -292,9 +292,9 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 	scalarField u = getU(x,y,t,phi_);
 	scalarField v = getV(x,y,t,phi_);
 
+	//Setting air velocity 
 	scalarField umax = getU(x,eta,t,phi_);
 	scalarField vmax = getV(x,eta,t,phi_);
-
     scalar yMax(gMax(y));
 	scalarField fac = (y-yMax)/(eta-yMax);
 	u = (u*neg(mag(u)- mag(umax)) + fac*umax*pos(mag(u)- mag(umax)));
@@ -319,57 +319,8 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 			if (yi > ymax) ymax = yi;
         }
 		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
-//		u[facei] *= neg(ymin-eta[facei]);
-//		v[facei] *= neg(ymin-eta[facei]);
     }
 	
-/*	
-	reduce(ueta, maxOp<scalar>());
-	reduce(vmax, maxOp<scalar>());    
-	reduce(yumax, maxOp<scalar>());    
-
-	scalar umax(0.0), vmax(0.0), yumax(0.0);
-	forAll(y,facei)
-    {
-        const labelList& f = fs[facei + start];
-        label nPoints = f.size();
-		scalar ymin(1e20), ymax(-1e20);
-		for (label pi = 0; pi < nPoints; pi++)
-        {
-			scalar yi = (up_ & (p[f[pi]])) - seabedHeight_;
-			if (yi < ymin) ymin = yi;
-			if (yi > ymax) ymax = yi;
-        }
-		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
-		u[facei] *= pos(alpha[facei]-SMALL);
-		v[facei] *= pos(alpha[facei]-SMALL);
-		if (mag(u[facei]) > mag(umax)) 
-		{
-			umax = u[facei];
-			vmax = v[facei];
-			yumax = ymax;// + alpha[facei]*(ymax-ymin);
-		}
-    }
-	reduce(umax, maxOp<scalar>());
-	reduce(vmax, maxOp<scalar>());    
-	reduce(yumax, maxOp<scalar>());    
-
-
-    //Setting velocity field in air phase to decrease linearly from -(umax,vmax) just above free surface to (0,0) at roof.
-    scalar yRoof(gMax(y));
-	scalar magU = sqrt(umax*umax+vmax*vmax);
-    forAll(y,facei)
-    {
-		scalar yf = y[facei];
-		if (yf > yumax)
-		{
-				u[facei] = 0.0;//-mag(umax)*(yf-yRoof)/(yumax-yRoof);
-				v[facei] = sign(vmax)*magU*(yf-yRoof)/(yumax-yRoof);
-//				u[facei] = umax*(yf-yRoof)/(yumax-yRoof);
-//				v[facei] = vmax*(yf-yRoof)/(yumax-yRoof);
-		}
-	}
-*/
 	//Setting field depending on its type
 	setField(this->refValue(), alpha, u, v);
 
@@ -461,7 +412,7 @@ void streamFunctionWaveFvPatchField<Type>::setField
 template<class Type>
 void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)
 {
-//	Info << "Enter streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
+	Info << "Enter streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 	N_ = ptf.N_;	
 	H_ = ptf.H_;
 	d_ = ptf.d_;
@@ -487,6 +438,7 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 	R_ = ptf.R_;
 	up_ = ptf.up_;	
 
+	Info << "Out of streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 //	writeOutMembers();
 }
 
@@ -536,7 +488,7 @@ void streamFunctionWaveFvPatchField<Type>::writeOutMembers()
 	Info << "seabedHeight_ " << seabedHeight_ << endl;
 	Info << "xWaveMaker_ " << xWaveMaker_ << endl;
 	Info << "phi_ " << phi_ << endl;
-
+	
 	Info << "rho1_ " << rho1_ << endl;
 	Info << "rho2_ " << rho2_ << endl;
 	Info << "k_ " << k_ << endl;
