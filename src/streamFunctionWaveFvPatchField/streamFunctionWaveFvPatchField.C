@@ -46,9 +46,9 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 :
     mixedFvPatchField<Type>(p, iF)
 {
-	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
-		 << this->patch().name() << " from patch and internal field." << endl;
-	Info<< "Warning: This streamFunctionWave constructor currently just sets refValue and refGrad to zero and valueFraction to 1!" << endl;
+//	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+//		 << this->patch().name() << " from patch and internal field." << endl;
+//	Info<< "Warning: This streamFunctionWave constructor currently just sets refValue and refGrad to zero and valueFraction to 1!" << endl;
 //	writeOutMembers();
 
 	//Initialising to fixed value boundary with zero as the value
@@ -67,8 +67,8 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 :
     mixedFvPatchField<Type>(p, iF)
 {
-	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
-		 << this->patch().name() << " from patch, internal field and dictionary." << endl;
+//	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+//		 << this->patch().name() << " from patch, internal field and dictionary." << endl;
 	
 	vector gVector = 
 	uniformDimensionedVectorField
@@ -239,8 +239,8 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 :
     mixedFvPatchField<Type>(ptf, iF)
 {
-	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
-		 << this->patch().name() << " as copy setting internal field reference." << endl;
+//	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
+//		 << this->patch().name() << " as copy setting internal field reference." << endl;
 	copyInit(ptf);
 }
 
@@ -412,7 +412,7 @@ void streamFunctionWaveFvPatchField<Type>::setField
 template<class Type>
 void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)
 {
-	Info << "Enter streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
+//	Info << "Enter streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 	N_ = ptf.N_;	
 	H_ = ptf.H_;
 	d_ = ptf.d_;
@@ -438,7 +438,7 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 	R_ = ptf.R_;
 	up_ = ptf.up_;	
 
-	Info << "Out of streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
+//	Info << "Out of streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 //	writeOutMembers();
 }
 
@@ -446,7 +446,7 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 template<class Type>
 void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
 {		
-	Info << "Entering write function and doing fvPatchField<Type>::write(os);" << endl;
+//	Info << "Entering write function and doing fvPatchField<Type>::write(os);" << endl;
 
     fvPatchField<Type>::write(os);
 	os.writeKeyword("H") << H_ << token::END_STATEMENT << nl;
