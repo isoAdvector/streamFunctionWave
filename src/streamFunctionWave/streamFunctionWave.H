@@ -96,6 +96,9 @@ protected:
 	//- Bernoulli constant
 	scalar R_;
 
+	//- Volume flow rate per unit span underneath the waves in the co-mvoing frame
+	scalar Q_;
+
 	void findRoot(scalarField& X, scalar h, scalar lort);
 
 	scalarField fun(const scalarField& X, scalar h, scalar lort);

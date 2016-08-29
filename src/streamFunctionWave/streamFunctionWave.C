@@ -48,7 +48,8 @@ u_(0),
 k_(0),
 omega_(0),
 uBar_(0),
-R_(0)
+R_(0),
+Q_(0)
 {}
 
 
@@ -85,6 +86,7 @@ void streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
 	k_ = waveDict.lookupOrDefault<scalar>("k",0.0);
 	R_ = waveDict.lookupOrDefault<scalar>("R",0.0);
 	uBar_ = waveDict.lookupOrDefault<scalar>("uBar",0.0);
+	Q_ = waveDict.lookupOrDefault<scalar>("Q",0.0);
 
 	if ( uType_ == 0 )
 	{
@@ -232,7 +234,8 @@ void streamFunctionWave::calcCoeffs()
 	E_ /= N_;
 
 	uBar_ = u / Foam::sqrt(k_/g);
-		
+	Q_ = q / Foam::sqrt(k_*k_*k_/g);
+    
 	Info << "Done calculating stream function wave" << endl;
 }
 
@@ -455,6 +458,8 @@ void streamFunctionWave::writeDict(fileName outDictName)
 	outDict.add("uBar",uBar_,true);
 	outDict.add("B",B_,true);
 	outDict.add("E",E_,true);
+	outDict.add("Q",Q_,true);
+	outDict.add("T0",lambda*d_/Q_,true);
 
     scalarField x(2);
     x[0] = 0;
@@ -465,7 +470,7 @@ void streamFunctionWave::writeDict(fileName outDictName)
 	outDict.add("h_trough",eta[1]-d_,true);
 	outDict.add("u_crest",u[0],true);
 	outDict.add("u_trough",u[1],true);
-
+    
 	outDict.write(OFstream(outDictName)(), false);
 	
 }
