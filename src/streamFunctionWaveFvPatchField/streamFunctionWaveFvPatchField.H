@@ -33,56 +33,31 @@ Description
 	pp241-324. Equation numbers in the code refer to this paper. At the time
 	of writing the paper could be downloaded here:
 
-	http://www.johndfenton.com/Papers/Fenton99Liu-Numerical-methods-for-nonlinear-waves.pdf	
+	http://www.johndfenton.com/Papers/Fenton99Liu-Numerical-methods-for-nonlinear-waves.pdf
+    
+    The patch works with interFoam type solvers.
 
-	Usage: 
-	
 	The wave generator patch velocity should be specified in 0/U like
 
 		patchName            
 		{
 			type            streamFunctionWave;
 			value			uniform (0 0 0);
+            waveDictName    waveProperties; (default: waveProperties)
+            waveDictPath    "constant"; (default: "constant")
 		}
 
-	Similarly the dynamic pressure in 0/pd and volumen fraction field in 
-	0/alpha1 must look like:
+	Similarly the alpha1 field must look like:
 
 		patchName            
 		{
 			type            streamFunctionWave;
 			value			uniform 0;
+            waveDictName    waveProperties; (default: waveProperties)
+            waveDictPath    "constant"; (default: "constant")
 		}
 
-	In the <case>/constant folder there should be a file named waveProperties
-	containing the wave parameters for the patch in a subdictionary named after the patch:
-
-	patchName
-	{
-	//	Name			Value ex.	Description
-		H	          0.1;			//Wave heigth
-		T   	       20;			//Wave period (only used if uType = 1 or 2)
-		length			2;			//Wave length (only used if uType = 0)
-		uType           2; 			//Input type. 0: wave lenght specified. 1 or 2: wave period and current specified (default = 2).
-		u1or2           0; 			//Current, Eulerian if uType = 1, Stokes if uType = 2 (default = 0).
-
-		d       	    0.3;		//Water depth
-		direction       ( 1 0 0 ); 	//Direction of wave vector
-		seabedHeight	-0.3; 		//Vertical coordinate of seabed on patch (default = lowest point on patch)
-		waveMakerPos	-3.0; 		//Horizontal position of wave maker (default = backmost point on patch)
-		phase			.1;			//Phase of wave, theta = k*x+omega*t + 2*pi*phase (default: the value that gives eta = d)
-
-		N          40; 		//Number of Fourier modes in expansion (default = 30)
-		nHSteps    20; 		//Number of height steps in search for wave solution (default = 20)
-	}
-	
-	This folder must also contain a file named g containing the gravitation 
-	vector, e.g.:
-	
-		dimensions      [0 1 -2 0 0 0 0];
-		value           ( 0 -9.81 0 );
-
-	The file <case>/system/controlDict must end with the line:
+	The file <case>/system/controlDict must containt the line:
 	
 		libs ( "libstreamFunctionWaveFvPatchField.so" "libOpenFOAM.so" );	
 		
@@ -142,9 +117,16 @@ protected:
         //- dictionary from which to read input data
         word waveDictName_;
         
+        //- Path to dictionary from which to read input data
         fileName waveDictPath_;
+        
+        //- Position of lowest point of each face of the patch
+        scalarField ymin_;
  
- // Protected member functions
+        //- Position of highest point of each face of the patch
+        scalarField ymax_;
+
+        // Protected member functions
 				
 		//Initialize member data from other patch (avoid constructor code duplication)
 		void copyInit(const streamFunctionWaveFvPatchField<Type>&);

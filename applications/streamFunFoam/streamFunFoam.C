@@ -6,7 +6,7 @@
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
 License
-    This file is part of OpenFOAM.
+    This file is an extenstion of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by
@@ -22,10 +22,12 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    streamFunFoam
+    streamFunFoam calculates the theoretical alpha1 and U for a stream function 
+    wave. This application is used to validate stream function waves generated
+    with CFD.
 
-Description
-    ...
+Author
+    Johan Roenby, DHI
 
 \*---------------------------------------------------------------------------*/
 

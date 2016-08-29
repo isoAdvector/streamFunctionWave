@@ -446,7 +446,8 @@ void streamFunctionWave::writeDict(fileName outDictName)
 	outDict.add("u",u_,true);
 	outDict.add("N",N_,true);
 	outDict.add("nHsteps",nHsteps_,true);
-	outDict.add("lambda",2*Foam::acos(-1.0)/k_,true);
+    scalar lambda = 2*Foam::acos(-1.0)/k_;
+	outDict.add("lambda",lambda,true);
 	outDict.add("k",k_,true);
 	outDict.add("omega",omega_,true);
 	outDict.add("c",omega_/k_,true);
@@ -454,6 +455,16 @@ void streamFunctionWave::writeDict(fileName outDictName)
 	outDict.add("uBar",uBar_,true);
 	outDict.add("B",B_,true);
 	outDict.add("E",E_,true);
+
+    scalarField x(2);
+    x[0] = 0;
+    x[1] = lambda/2.0;
+    scalarField eta = getEta(x,0,0);
+    scalarField u = getU(x,eta,0,0);
+	outDict.add("h_crest",eta[0]-d_,true);
+	outDict.add("h_trough",eta[1]-d_,true);
+	outDict.add("u_crest",u[0],true);
+	outDict.add("u_trough",u[1],true);
 
 	outDict.write(OFstream(outDictName)(), false);
 	

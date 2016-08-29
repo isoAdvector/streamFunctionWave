@@ -66,26 +66,15 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 )
 :
     mixedFvPatchField<Type>(p, iF),
-    waveDictName_(dict.lookupOrDefault<word>("waveDictName", "waveDict")),
-    waveDictPath_(dict.lookupOrDefault<fileName>("waveDictPath", "constant"))
+    waveDictName_(dict.lookupOrDefault<word>("waveDictName", "waveProperties")),
+    waveDictPath_(dict.lookupOrDefault<fileName>("waveDictPath", "constant")),
+    ymin_(this->patch().Cf().size()),
+    ymax_(this->patch().Cf().size())
 {
 
 //	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
 //		 << this->patch().name() << " from patch, internal field and dictionary." << endl;
-/*
-	IOdictionary waveDict
-	(
-		IOobject
-		(
-			waveDictName_,
-			this->db().time().path()/waveDictPath_,
-			this->db(),
-			IOobject::MUST_READ,
-			IOobject::NO_WRITE
-		)
-	);
-    Info << waveDict << endl;
-*/	
+
 	vector gVector = 
 	uniformDimensionedVectorField
 	(
@@ -111,8 +100,6 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
     {
         waveDictPath = this->db().time().path()/waveDictPath_;
     }
-
-    Info << "waveDictPath: " << waveDictPath << endl;
     
 	IOdictionary waveProp
 	(
@@ -120,8 +107,6 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 		(
 			waveDictName_,
 			waveDictPath,
-//			"waveProperties",
-//			this->db().time().constant(),
 			this->db(),
 			IOobject::MUST_READ,
 			IOobject::NO_WRITE
@@ -181,52 +166,80 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 		K_ = K_/mag(K_);
 	}
 	
-	//Finding lowest and the "backmost" mesh point on the patch
-    const fvMesh & mesh = this->dimensionedInternalField().mesh();
-	const pointField& pts = mesh.points();
-    const label patchID = mesh.boundaryMesh().findPatchID(this->patch().name());
-	const polyPatch& patch = mesh.boundaryMesh()[patchID];
-	const labelList& labels(patch.meshPoints());
+	//Setting seabedHeight_ and xWaveMaker_ with lowest and "backmost" mesh 
+    //point on the patch as defaults
+    {
+        scalar ymin(1e20), xmin(1e20);
+        
+        const fvMesh & mesh = this->dimensionedInternalField().mesh();
+        const pointField& pts = mesh.points();
+        const label patchID = mesh.boundaryMesh().findPatchID(this->patch().name());
+        const polyPatch& patch = mesh.boundaryMesh()[patchID];
+        const labelList& labels(patch.meshPoints());
 
-	scalar ymin(1e20), xmin(1e20);
-	forAll(labels, pi)
-	{
-		scalar yi = (up_ & (pts[labels[pi]]));
-		scalar xi = (K_ & (pts[labels[pi]]));
-		if (yi < ymin) ymin = yi;
-		if (xi < xmin) xmin = xi;
-	}
-	reduce(ymin, minOp<scalar>());    
-	reduce(xmin, minOp<scalar>());    
-	
-	//Vertical position of seabed at the boundary in coordinates used to generate mesh 
-	seabedHeight_ = dict.lookupOrDefault<scalar>("seabedHeight",ymin);
+        forAll(labels, pi)
+        {
+            scalar yi = (up_ & (pts[labels[pi]]));
+            scalar xi = (K_ & (pts[labels[pi]]));
+            if (yi < ymin) ymin = yi;
+            if (xi < xmin) xmin = xi;
+        }
+        reduce(ymin, minOp<scalar>());    
+        reduce(xmin, minOp<scalar>());    
+        
+        //Vertical position of seabed at the boundary in coordinates used to generate mesh 
+        seabedHeight_ = dict.lookupOrDefault<scalar>("seabedHeight",ymin);
 
-	//Horizontal wave maker position
-	xWaveMaker_ = dict.lookupOrDefault<scalar>("waveMakerPos",xmin);
-	
-	IOdictionary tp
-	(
-		IOobject
-		(
-			"transportProperties",
-			this->db().time().constant(),
-			this->db(),
-			IOobject::MUST_READ,
-			IOobject::NO_WRITE
-		)
-	);
+        //Horizontal wave maker position
+        xWaveMaker_ = dict.lookupOrDefault<scalar>("waveMakerPos",xmin);
+    }
+    
+    //Reading fluid densities
+    {
+        IOdictionary tp
+        (
+            IOobject
+            (
+                "transportProperties",
+                this->db().time().constant(),
+                this->db(),
+                IOobject::MUST_READ,
+                IOobject::NO_WRITE
+            )
+        );
 
-	wordList defaultPhaseNames(2);
-	defaultPhaseNames[0] = "phase1";
-	defaultPhaseNames[1] = "phase2";
-	wordList phases(wordList(tp.lookupOrDefault("phases",defaultPhaseNames))); //In OF-2.3.0 the phases keyword is required in transportProperties
+        wordList defaultPhaseNames(2);
+        defaultPhaseNames[0] = "phase1";
+        defaultPhaseNames[1] = "phase2";
+        wordList phases(wordList(tp.lookupOrDefault("phases",defaultPhaseNames))); //In OF-2.3.0 the phases keyword is required in transportProperties
 
-	dictionary sD1(tp.subDict(phases[0]));
-	rho1_ = (dimensionedScalar(sD1.lookup("rho"))).value();	
-	dictionary sD2(tp.subDict(phases[1]));
-	rho2_ = (dimensionedScalar(sD2.lookup("rho"))).value();	
-
+        dictionary sD1(tp.subDict(phases[0]));
+        rho1_ = (dimensionedScalar(sD1.lookup("rho"))).value();	
+        dictionary sD2(tp.subDict(phases[1]));
+        rho2_ = (dimensionedScalar(sD2.lookup("rho"))).value();
+    }
+    
+    //Find minimum and maximum vertical point for each face and populate ymin_and ymax_
+    {
+        const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
+        const pointField& p = this->dimensionedInternalField().mesh().points(); //Handle to list of all grid points
+        const label start = this->patch().patch().start(); //index in mesh face list of first face belonging to this patch
+        
+        forAll(ymin_,facei)
+        {
+            const labelList& f = fs[facei + start];
+            label nPoints = f.size();
+            ymin_[facei] = 1e20;
+            ymax_[facei] = -1e20;
+            for (label pi = 0; pi < nPoints; pi++)
+            {
+                scalar yi = (up_ & (p[f[pi]])) - seabedHeight_;
+                if (yi < ymin_[facei]) ymin_[facei] = yi;
+                if (yi > ymax_[facei]) ymax_[facei] = yi;
+            }
+        }
+    }
+    
     if (dict.found("value")) //Not sure why this is needed but it exists in many BC's derived from mixed, so better keep it (JRO).
     {
         fvPatchField<Type>::operator=
@@ -330,36 +343,21 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 	//Setting air velocity 
 	scalarField umax = getU(x,eta,t,phi_);
 	scalarField vmax = getV(x,eta,t,phi_);
-//    scalar yMax(gMax(y));
-//	scalarField fac = (y-yMax)/(eta-yMax);
-//	u = (u*neg(mag(u)- mag(umax)) + fac*umax*pos(mag(u)- mag(umax)));
-//	v = (v*neg(mag(v)- mag(vmax)) + fac*vmax*pos(mag(v)- mag(vmax)));
 
-	//Calculating volume fraction (assuming parallelogram shaped - e.g. rectangular - faces with horizontal sides)
-	const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
-	const pointField& p = this->dimensionedInternalField().mesh().points(); //Handle to list of all grid points
-	const label start = this->patch().patch().start(); //index in mesh face list of first face belonging to this patch
+	//Calculating volume fraction (assuming parallelogram shaped - e.g. 
+    //rectangular - faces with horizontal sides)
 	scalarField alpha(y.size(),0.0);
 	
 	forAll(y,facei)
     {
-		//Really silly to recalculate at each time step
-        const labelList& f = fs[facei + start];
-        label nPoints = f.size();
-		scalar ymin(1e20), ymax(-1e20);
-		for (label pi = 0; pi < nPoints; pi++)
-        {
-			scalar yi = (up_ & (p[f[pi]])) - seabedHeight_;
-			if (yi < ymin) ymin = yi;
-			if (yi > ymax) ymax = yi;
-        }
-		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
-        if (ymin > eta[facei])
+		alpha[facei] = min(max((eta[facei]-ymin_[facei])/(ymax_[facei]-ymin_[facei]),0.0),1.0);
+        
+        if (ymin_[facei] > eta[facei])
         {
             u[facei] = 0;
             v[facei] = 0;
         }
-        else if (ymin <= eta[facei] && eta[facei] <= ymax)
+        else if (ymin_[facei] <= eta[facei] && eta[facei] <= ymax_[facei])
         {
             u[facei] = umax[facei];
             v[facei] = vmax[facei];
@@ -387,7 +385,7 @@ void streamFunctionWaveFvPatchField<vector>::setField
 )
 {			
 //	Info << "Enter streamFunctionWaveFvPatchField<vector>::setField" << endl;
-	this->refValue() = alpha*(u*K_/mag(K_) + v*up_);
+	this->refValue() = (u*K_/mag(K_) + v*up_);
 	this->refGrad() = vector::zero;
 	this->valueFraction() = 1.0;
 //	this->valueFraction() = max(alpha-SMALL);
@@ -484,6 +482,8 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 	up_ = ptf.up_;	
     waveDictName_ = ptf.waveDictName_;
     waveDictPath_ = ptf.waveDictPath_;
+    ymin_ = ptf.ymin_;
+    ymax_ = ptf.ymax_;
     
 //	Info << "Out of streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 //	writeOutMembers();

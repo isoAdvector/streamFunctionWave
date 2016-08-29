@@ -22,7 +22,8 @@ ddtSchemes
 
 gradSchemes
 {
-    default         Gauss linear;
+    default         cellLimited Gauss linear 1;
+//    default         Gauss linear;
 }
 
 divSchemes
@@ -35,7 +36,8 @@ divSchemes
 
 laplacianSchemes
 {
-    default         Gauss linear corrected;
+    default         Gauss linear limited 0.5;
+//    default         Gauss linear corrected;
 }
 
 interpolationSchemes
@@ -45,7 +47,8 @@ interpolationSchemes
 
 snGradSchemes
 {
-    default         corrected;
+    default         limited 0.5;
+//    default         corrected;
 }
 
 fluxRequired
