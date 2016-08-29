@@ -74,7 +74,7 @@ int main(int argc, char *argv[])
     dictionary inDict(IFstream(inDictName)(), true);
 	streamFunctionWave inWave(inDict);
 
-    const fileName outDictName = args[2];	
+    const fileName outDictName = args[2];
 	
 	bool calcWave(true);
 

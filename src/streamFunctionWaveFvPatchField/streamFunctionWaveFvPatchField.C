@@ -65,11 +65,27 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
     const dictionary& dict
 )
 :
-    mixedFvPatchField<Type>(p, iF)
+    mixedFvPatchField<Type>(p, iF),
+    waveDictName_(dict.lookupOrDefault<word>("waveDictName", "waveDict")),
+    waveDictPath_(dict.lookupOrDefault<fileName>("waveDictPath", "constant"))
 {
+
 //	Info << "Construct field " << this->dimensionedInternalField().name() << " on patch " 
 //		 << this->patch().name() << " from patch, internal field and dictionary." << endl;
-	
+/*
+	IOdictionary waveDict
+	(
+		IOobject
+		(
+			waveDictName_,
+			this->db().time().path()/waveDictPath_,
+			this->db(),
+			IOobject::MUST_READ,
+			IOobject::NO_WRITE
+		)
+	);
+    Info << waveDict << endl;
+*/	
 	vector gVector = 
 	uniformDimensionedVectorField
 	(
@@ -85,19 +101,38 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 	g_ = mag(gVector);
 	up_ = -gVector/g_;
 
+
+    fileName waveDictPath;
+    if (Pstream::parRun())
+    {
+        waveDictPath = this->db().time().path()/".."/waveDictPath_;
+    }
+    else
+    {
+        waveDictPath = this->db().time().path()/waveDictPath_;
+    }
+
+    Info << "waveDictPath: " << waveDictPath << endl;
+    
 	IOdictionary waveProp
 	(
 		IOobject
 		(
-			"waveProperties",
-			this->db().time().constant(),
+			waveDictName_,
+			waveDictPath,
+//			"waveProperties",
+//			this->db().time().constant(),
 			this->db(),
 			IOobject::MUST_READ,
 			IOobject::NO_WRITE
 		)
 	);
-	dictionary patchInWave = waveProp.subDict(this->patch().name());
-
+    dictionary patchInWave = waveProp;
+    if (waveProp.found(this->patch().name()))
+    {
+        patchInWave = waveProp.subDict(this->patch().name());
+    }
+    
 	word filnam("streamFunctionWaveOutputFor" + this->patch().name());
 	fileName outDictName(this->db().time().caseConstant()/filnam);
 
@@ -295,10 +330,10 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 	//Setting air velocity 
 	scalarField umax = getU(x,eta,t,phi_);
 	scalarField vmax = getV(x,eta,t,phi_);
-    scalar yMax(gMax(y));
-	scalarField fac = (y-yMax)/(eta-yMax);
-	u = (u*neg(mag(u)- mag(umax)) + fac*umax*pos(mag(u)- mag(umax)));
-	v = (v*neg(mag(v)- mag(vmax)) + fac*vmax*pos(mag(v)- mag(vmax)));
+//    scalar yMax(gMax(y));
+//	scalarField fac = (y-yMax)/(eta-yMax);
+//	u = (u*neg(mag(u)- mag(umax)) + fac*umax*pos(mag(u)- mag(umax)));
+//	v = (v*neg(mag(v)- mag(vmax)) + fac*vmax*pos(mag(v)- mag(vmax)));
 
 	//Calculating volume fraction (assuming parallelogram shaped - e.g. rectangular - faces with horizontal sides)
 	const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
@@ -319,6 +354,16 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 			if (yi > ymax) ymax = yi;
         }
 		alpha[facei] = min(max((eta[facei]-ymin)/(ymax-ymin),0.0),1.0);
+        if (ymin > eta[facei])
+        {
+            u[facei] = 0;
+            v[facei] = 0;
+        }
+        else if (ymin <= eta[facei] && eta[facei] <= ymax)
+        {
+            u[facei] = umax[facei];
+            v[facei] = vmax[facei];
+        }
     }
 	
 	//Setting field depending on its type
@@ -342,7 +387,7 @@ void streamFunctionWaveFvPatchField<vector>::setField
 )
 {			
 //	Info << "Enter streamFunctionWaveFvPatchField<vector>::setField" << endl;
-	this->refValue() = u*K_/mag(K_) + v*up_;
+	this->refValue() = alpha*(u*K_/mag(K_) + v*up_);
 	this->refGrad() = vector::zero;
 	this->valueFraction() = 1.0;
 //	this->valueFraction() = max(alpha-SMALL);
@@ -437,7 +482,9 @@ void streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPa
 	u_ = ptf.u_;
 	R_ = ptf.R_;
 	up_ = ptf.up_;	
-
+    waveDictName_ = ptf.waveDictName_;
+    waveDictPath_ = ptf.waveDictPath_;
+    
 //	Info << "Out of streamFunctionWaveFvPatchField<Type>::copyInit(const streamFunctionWaveFvPatchField<Type>& ptf)" << endl;
 //	writeOutMembers();
 }
@@ -468,6 +515,8 @@ void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
 	os.writeKeyword("B") << B_ << token::END_STATEMENT << nl;
 	os.writeKeyword("direction") << K_ << token::END_STATEMENT << nl;
 	os.writeKeyword("phase") << phi_ << token::END_STATEMENT << nl;
+	os.writeKeyword("waveDictName") << waveDictName_ << token::END_STATEMENT << nl;
+	os.writeKeyword("waveDictPath") << waveDictPath_ << token::END_STATEMENT << nl;
 
     this->writeEntry("value", os);
 }
@@ -499,6 +548,8 @@ void streamFunctionWaveFvPatchField<Type>::writeOutMembers()
 	Info << "R_ " << R_ << endl;
 	Info << "E_ " << E_ << endl;
 	Info << "B_ " << B_ << endl;
+	Info << "waveDictName_ " << waveDictName_ << endl;
+	Info << "waveDictPath_ " << waveDictPath_ << endl;
 }
 
 

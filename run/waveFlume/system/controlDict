@@ -27,7 +27,7 @@ stopAt          endTime;
 
 endTime         50;
 
-writeControl    runTime;
+writeControl    adjustableRunTime;
 
 writeInterval   1;
 
@@ -39,7 +39,7 @@ writeFormat     ascii;
 
 writePrecision  6;
 
-writeCompression compressed;
+writeCompression uncompressed;
 
 timeFormat      general;
 

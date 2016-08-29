@@ -24,6 +24,8 @@ boundaryField
     {
         type            streamFunctionWave;
         value		uniform (0 0 0);
+        waveDictName    waveProperties;
+        waveDictPath    "constant";
     }
     right
     {

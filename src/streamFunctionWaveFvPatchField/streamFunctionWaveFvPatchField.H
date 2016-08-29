@@ -138,8 +138,13 @@ protected:
 
 		//- Air density
 		scalar rho2_;
-	
-    // Protected member functions
+        
+        //- dictionary from which to read input data
+        word waveDictName_;
+        
+        fileName waveDictPath_;
+ 
+ // Protected member functions
 				
 		//Initialize member data from other patch (avoid constructor code duplication)
 		void copyInit(const streamFunctionWaveFvPatchField<Type>&);

@@ -102,9 +102,6 @@ protected:
 	
 	scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort);
 
-	//- Find x/lambda value where eta = d
-	scalar zeroPointPhase();
-
 public:
 
 	streamFunctionWave();
@@ -140,7 +137,9 @@ public:
 		const scalar& phi
 	);
 
-	
+	//- Find x/lambda value where eta = d
+	scalar zeroPointPhase();
+
 	void writeDict(fileName);	
 
 };
