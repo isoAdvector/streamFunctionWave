@@ -1,0 +1,4 @@
+streamFunFoam.C
+../../src/streamFunctionWave/streamFunctionWave.C
+
+EXE = $(FOAM_USER_APPBIN)/streamFunFoam
