@@ -41,7 +41,6 @@ Author
 #include "fvIOoptionList.H"
 #include "streamFunctionWave.H"
 #include "isoCutCell.H"
-#include "streamFunctionWave.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

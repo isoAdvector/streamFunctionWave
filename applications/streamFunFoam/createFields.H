@@ -145,25 +145,25 @@
 			IOobject::NO_WRITE
 		)
 	);
-    
+
     vector up = -g.value();
     up /= mag(up);
     vector K = vector(waveProps.lookupOrDefault<vector>("direction",vector::zero));
 
     scalar ymin(1e20), xmin(1e20);
     const pointField& pts = mesh.points();
-    
+
     ymin = gMin(up & pts);
     xmin = gMin(K & pts);
 
-	scalar xWaveMaker = waveProps.lookupOrDefault<scalar>("waveMakerPos",xmin);    
+	scalar xWaveMaker = waveProps.lookupOrDefault<scalar>("waveMakerPos",xmin);
 	scalar seabedHeight = waveProps.lookupOrDefault<scalar>("seabedHeight",ymin);
-    
+
     scalarField x = (K/mag(K)) & mesh.C();
 	x -= xWaveMaker;
 	scalarField y = up & mesh.C();
 	y -= seabedHeight; //Vertical coordinate as measured from seabed
-	
+
     streamFunctionWave wave(waveProps);
     wave.calcCoeffs();
     scalar phase = 0;
