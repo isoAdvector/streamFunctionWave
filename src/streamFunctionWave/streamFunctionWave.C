@@ -437,6 +437,9 @@ Foam::scalarField streamFunctionWave::getV
 void streamFunctionWave::writeDict(fileName outDictName)
 {
 	Info << "Enter writeDict(fileName outDictName) " << endl;
+    
+    ISstream::defaultPrecision(14);
+
 	dictionary outDict(outDictName);
 
 	outDict.add("H",H_,true);
