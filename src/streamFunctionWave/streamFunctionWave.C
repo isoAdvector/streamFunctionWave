@@ -439,7 +439,7 @@ void streamFunctionWave::writeDict(fileName outDictName)
 	Info << "Enter writeDict(fileName outDictName) " << endl;
     
     ISstream::defaultPrecision(14);
-
+    
 	dictionary outDict(outDictName);
 
 	outDict.add("H",H_,true);
@@ -473,6 +473,7 @@ void streamFunctionWave::writeDict(fileName outDictName)
 	outDict.add("h_trough",eta[1]-d_,true);
 	outDict.add("u_crest",u[0],true);
 	outDict.add("u_trough",u[1],true);
+	outDict.add("steepness",H_/lambda,true);
     
 	outDict.write(OFstream(outDictName)(), false);
 	
