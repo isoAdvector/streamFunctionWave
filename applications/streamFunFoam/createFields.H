@@ -155,7 +155,7 @@
 
     ymin = gMin(up & pts);
     xmin = gMin(K & pts);
-
+    
 	scalar xWaveMaker = waveProps.lookupOrDefault<scalar>("waveMakerPos",xmin);
 	scalar seabedHeight = waveProps.lookupOrDefault<scalar>("seabedHeight",ymin);
 
@@ -175,6 +175,8 @@
 	{
 		phase = 1.0 - wave.zeroPointPhase();
 	}
+
+    vector uAir = vector(waveProps.lookupOrDefault<vector>("uAir",vector::zero));
 
     //Setting stresam function alpha field in whole domain
 	scalar t = runTime.time().value();
@@ -199,7 +201,8 @@
     {
         u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
         v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
-        U[ci] = pos(alpha1[ci] - 1e-3)*(u[ci]*K/mag(K) + v[ci]*up);
+        U[ci] = pos(alpha1[ci] - 1e-3)*(u[ci]*K/mag(K) + v[ci]*up)
+                + neg(alpha1[ci] - 1e-3)*uAir;
     }
 
     U.write(); //Writing volScalarField alpha1

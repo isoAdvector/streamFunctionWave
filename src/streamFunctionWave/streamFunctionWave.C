@@ -221,6 +221,7 @@ void streamFunctionWave::calcCoeffs()
 	scalarField etapp = keta/k_;
 	etapp[0] *= 0.5;
 	etapp[N_] *= 0.5;
+    E_ = 0;
 	forAll(E_,jj)
 	{
 		forAll(etapp,mm)

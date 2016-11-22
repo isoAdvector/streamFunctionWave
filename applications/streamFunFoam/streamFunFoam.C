@@ -93,7 +93,8 @@ int main(int argc, char *argv[])
         {
             u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
             v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
-            U[ci] = pos(alpha1[ci] - 1e-3)*(u[ci]*K/mag(K) + v[ci]*up);
+            U[ci] = pos(alpha1[ci] - 1e-3)*(u[ci]*K/mag(K) + v[ci]*up)
+                    + neg(alpha1[ci] - 1e-3)*uAir;
         }
 /*
         twoPhaseProperties.correct();
