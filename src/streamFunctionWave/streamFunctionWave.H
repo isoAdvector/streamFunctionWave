@@ -140,6 +140,14 @@ public:
 		const scalar& phi
 	);
 
+	scalarField getPbyRho
+	(
+		const scalarField& x,
+		const scalarField& y,
+		const scalar& t,
+		const scalar& phi
+	);
+
 	//- Find x/lambda value where eta = d
 	scalar zeroPointPhase();
 

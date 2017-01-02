@@ -435,6 +435,23 @@ Foam::scalarField streamFunctionWave::getV
 }
 
 
+Foam::scalarField streamFunctionWave::getPbyRho
+(
+	const scalarField& x,
+	const scalarField& y,
+	const scalar& t,
+	const scalar& phi
+)
+{
+    scalarField u = getU(x,y,t,phi);
+    scalarField v = getV(x,y,t,phi);
+    scalar c = 	omega_/(k_ + SMALL);
+	scalarField pByRho = R_ - g_*y - 0.5*(pow(u - c,2) + pow(v,2)); //Fenton (1999), eq. (3.28)
+	
+	return pByRho;
+}
+
+
 void streamFunctionWave::writeDict(fileName outDictName)
 {
 	Info << "Enter writeDict(fileName outDictName) " << endl;

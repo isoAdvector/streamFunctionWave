@@ -32,11 +32,7 @@ Author
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "MULES.H"
 #include "subCycle.H"
-#include "interfaceProperties.H"
-#include "twoPhaseMixture.H"
-#include "turbulenceModel.H"
 #include "pimpleControl.H"
 #include "fvIOoptionList.H"
 #include "streamFunctionWave.H"
@@ -88,37 +84,23 @@ int main(int argc, char *argv[])
         v = wave.getV(x,y,t,phase);
         umax = wave.getU(x,eta,t,phase);
         vmax = wave.getV(x,eta,t,phase);
-
+        rho = alpha1*rho1 + (scalar(1) - alpha1)*rho2;
+        pByRho = wave.getPbyRho(x, y, t, phase);
+        forAll(p, ci)
+        {
+            p[ci] = rho[ci]*pByRho[ci];
+        }    
+        p_rgh = p - rho*(g & mesh.C());
+        
         forAll(U,ci)
         {
             u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
             v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
-            U[ci] = pos(alpha1[ci] - 1e-3)*(u[ci]*K/mag(K) + v[ci]*up)
-                    + neg(alpha1[ci] - 1e-3)*uAir;
+            U[ci] = (
+                        alpha1[ci]*rho1.value()*(u[ci]*K/mag(K) + v[ci]*up)
+                        + (1-alpha1[ci])*rho2.value()*uAir
+                    )/rho[ci];
         }
-/*
-        twoPhaseProperties.correct();
-
-        #include "alphaEqnSubCycle.H"
-        interface.correct();
-
-        // --- Pressure-velocity PIMPLE corrector loop
-        while (pimple.loop())
-        {
-            #include "UEqn.H"
-
-            // --- Pressure corrector loop
-            while (pimple.correct())
-            {
-                #include "pEqn.H"
-            }
-
-            if (pimple.turbCorr())
-            {
-                turbulence->correct();
-            }
-        }
-*/
         runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
