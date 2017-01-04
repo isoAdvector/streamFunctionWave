@@ -128,14 +128,16 @@
         mesh
     );
     vector uAir = vector(waveProps.lookupOrDefault<vector>("uAir",vector::zero));
+    bool comoving = bool(waveProps.lookupOrDefault<bool>("comoving",0));
+    scalar c = scalar(waveProps.lookupOrDefault<scalar>("c",0));
     
     forAll(U,ci)
     {
         u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
         v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
         U[ci] = (
-                    alpha1[ci]*rho1.value()*(u[ci]*K/mag(K) + v[ci]*up)
-                    + (1-alpha1[ci])*rho2.value()*uAir
+                    alpha1[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K) 
+                        + v[ci]*up) + (1-alpha1[ci])*rho2.value()*uAir
                 )/rho[ci];
     }
     U.write();
