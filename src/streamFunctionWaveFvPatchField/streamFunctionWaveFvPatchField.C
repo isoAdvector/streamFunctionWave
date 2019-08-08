@@ -170,8 +170,8 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
     //point on the patch as defaults
     {
         scalar ymin(1e20), xmin(1e20);
-        
-        const fvMesh & mesh = this->dimensionedInternalField().mesh();
+
+        const fvMesh & mesh = this->internalField().mesh();
         const pointField& pts = mesh.points();
         const label patchID = mesh.boundaryMesh().findPatchID(this->patch().name());
         const polyPatch& patch = mesh.boundaryMesh()[patchID];
@@ -184,16 +184,16 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
             if (yi < ymin) ymin = yi;
             if (xi < xmin) xmin = xi;
         }
-        reduce(ymin, minOp<scalar>());    
-        reduce(xmin, minOp<scalar>());    
-        
+        reduce(ymin, minOp<scalar>());
+        reduce(xmin, minOp<scalar>());
+
         //Vertical position of seabed at the boundary in coordinates used to generate mesh 
         seabedHeight_ = dict.lookupOrDefault<scalar>("seabedHeight",ymin);
 
         //Horizontal wave maker position
         xWaveMaker_ = dict.lookupOrDefault<scalar>("waveMakerPos",xmin);
     }
-    
+
     //Reading fluid densities
     {
         IOdictionary tp
@@ -218,13 +218,13 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
         dictionary sD2(tp.subDict(phases[1]));
         rho2_ = (dimensionedScalar(sD2.lookup("rho"))).value();
     }
-    
+
     //Find minimum and maximum vertical point for each face and populate ymin_and ymax_
     {
-        const faceList& fs = this->dimensionedInternalField().mesh().faces(); //Handle to list of all faces
-        const pointField& p = this->dimensionedInternalField().mesh().points(); //Handle to list of all grid points
+        const faceList& fs = this->internalField().mesh().faces(); //Handle to list of all faces
+        const pointField& p = this->internalField().mesh().points(); //Handle to list of all grid points
         const label start = this->patch().patch().start(); //index in mesh face list of first face belonging to this patch
-        
+
         forAll(ymin_,facei)
         {
             const labelList& f = fs[facei + start];
@@ -239,7 +239,7 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
             }
         }
     }
-    
+
     if (dict.found("value")) //Not sure why this is needed but it exists in many BC's derived from mixed, so better keep it (JRO).
     {
         fvPatchField<Type>::operator=
@@ -351,7 +351,7 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 	forAll(y,facei)
     {
 		alpha[facei] = min(max((eta[facei]-ymin_[facei])/(ymax_[facei]-ymin_[facei]),0.0),1.0);
-        
+
         if (ymin_[facei] > eta[facei])
         {
             u[facei] = 0;
@@ -403,7 +403,7 @@ void streamFunctionWaveFvPatchField<scalar>::setField
 {	
 //	Info << "Enter streamFunctionWaveFvPatchField<scalar>::setField" << endl;
 
-	const word& fieldName = this->dimensionedInternalField().name();
+	const word& fieldName = this->internalField().name();
 
 	if (fieldName == "alpha1" || fieldName == "gamma")
 	{			

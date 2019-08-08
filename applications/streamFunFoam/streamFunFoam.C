@@ -22,7 +22,7 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    streamFunFoam calculates the theoretical alpha1 and U for a stream function 
+    streamFunFoam calculates the theoretical alpha1 and U for a stream function
     wave. This application is used to validate stream function waves generated
     with CFD.
 
@@ -32,9 +32,6 @@ Author
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "subCycle.H"
-#include "pimpleControl.H"
-#include "fvIOoptionList.H"
 #include "streamFunctionWave.H"
 #include "isoCutCell.H"
 
@@ -45,13 +42,10 @@ int main(int argc, char *argv[])
     #include "setRootCase.H"
     #include "createTime.H"
     #include "createMesh.H"
+    #include "createTimeControls.H"
 
-    pimpleControl pimple(mesh);
-
-    #include "initContinuityErrs.H"
     #include "createFields.H"
     #include "readTimeControls.H"
-//    #include "correctPhi.H"
     #include "CourantNo.H"
     #include "setInitialDeltaT.H"
 
@@ -76,7 +70,7 @@ int main(int argc, char *argv[])
         {
             alpha1 = 0;
             isoCutCell icc(mesh, etap);
-            icc.VolumeOfFluid(alpha1, 0);
+            icc.volumeOfFluid(alpha1, 0);
         }
 
         eta = wave.getEta(x,t,phase);
@@ -89,15 +83,15 @@ int main(int argc, char *argv[])
         forAll(p, ci)
         {
             p[ci] = rho[ci]*pByRho[ci];
-        }    
+        }
         p_rgh = p - rho*(g & mesh.C());
-        
+
         forAll(U,ci)
         {
             u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
             v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
             U[ci] = (
-                    alpha1[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K) 
+                    alpha1[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K)
                         + v[ci]*up) + (1-alpha1[ci])*rho2.value()*uAir
                     )/rho[ci];
         }
