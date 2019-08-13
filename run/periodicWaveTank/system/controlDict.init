@@ -39,7 +39,7 @@ writeFormat     ascii;
 
 writePrecision  6;
 
-writeCompression uncompressed;
+writeCompression no;
 
 timeFormat      general;
 
@@ -55,7 +55,5 @@ maxCo           0.2;
 maxAlphaCo      0.2;
 
 maxDeltaT       0.2;
-
-libs ( "libstreamFunctionWaveFvPatchField.so" "libOpenFOAM.so" );
 
 // ************************************************************************* //

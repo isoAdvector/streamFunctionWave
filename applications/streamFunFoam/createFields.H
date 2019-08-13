@@ -1,6 +1,6 @@
 #include "readGravitationalAcceleration.H"
 vector up = -g.value();
-up /= (mag(up)+SMALL);
+up /= mag(up);
 
 IOdictionary waveProps
 (
@@ -15,8 +15,6 @@ IOdictionary waveProps
 );
 
 vector K(waveProps.lookupOrDefault<vector>("direction",vector::zero));
-
-Info << "K = " << K << endl;
 
 scalar ymin(1e20), xmin(1e20);
 const pointField& pts = mesh.points();
@@ -44,77 +42,13 @@ else
     phase = 1.0 - wave.zeroPointPhase();
 }
 
-//Setting stresam function alpha field in whole domain
+//Setting stream function alpha field in whole domain
 scalar t = runTime.time().value();
 scalarField xp = ((K/mag(K)) & pts);
 xp -= xWaveMaker;
 scalarField yp = (up & pts);
 yp -= seabedHeight;
 scalarField etap = wave.getEta(xp, t, phase) - yp;
-
-Info<< "Reading field U\n" << endl;
-volScalarField alpha1
-(
-    IOobject
-    (
-        "alpha1",
-        runTime.timeName(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::AUTO_WRITE
-    ),
-    mesh
-);
-
-isoCutCell icc(mesh, etap);
-icc.volumeOfFluid(alpha1, 0);
-alpha1.write(); //Writing volScalarField alpha1
-
-// Calculate rho
-Info<< "Reading fluid densities\n" << endl;
-IOdictionary tp
-(
-    IOobject
-    (
-        "transportProperties",
-        runTime.constant(),
-        mesh,
-        IOobject::MUST_READ,
-        IOobject::NO_WRITE
-    )
-);
-
-wordList defaultPhaseNames(2);
-defaultPhaseNames[0] = "phase1";
-defaultPhaseNames[1] = "phase2";
-//From OF-2.3.0 the phases keyword is required in transportProperties
-wordList phases(wordList(tp.lookupOrDefault("phases", defaultPhaseNames)));
-
-dictionary sD1(tp.subDict(phases[0]));
-dimensionedScalar rho1 = sD1.lookup("rho");
-dictionary sD2(tp.subDict(phases[1]));
-dimensionedScalar rho2 = sD2.lookup("rho");
-
-volScalarField rho
-(
-    IOobject
-    (
-        "rho",
-        runTime.timeName(),
-        mesh,
-        IOobject::READ_IF_PRESENT
-    ),
-    alpha1*rho1 + (scalar(1) - alpha1)*rho2,
-    alpha1.boundaryField().types()
-);
-rho.oldTime();
-
-//Calculating velocity field
-scalarField eta = wave.getEta(x,t,phase);
-scalarField u = wave.getU(x,y,t,phase);
-scalarField v = wave.getV(x,y,t,phase);
-scalarField umax = wave.getU(x,eta,t,phase);
-scalarField vmax = wave.getV(x,eta,t,phase);
 
 Info<< "Reading field U\n" << endl;
 volVectorField U
@@ -129,20 +63,6 @@ volVectorField U
     ),
     mesh
 );
-vector uAir = vector(waveProps.lookupOrDefault<vector>("uAir",vector::zero));
-bool comoving = bool(waveProps.lookupOrDefault<bool>("comoving",0));
-scalar c = scalar(waveProps.lookupOrDefault<scalar>("c",0));
-
-forAll(U,ci)
-{
-    u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
-    v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
-    U[ci] = (
-                alpha1[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K) 
-                    + v[ci]*up) + (1-alpha1[ci])*rho2.value()*uAir
-            )/rho[ci];
-}
-U.write();
 
 Info<< "Reading/calculating face flux field phi\n" << endl;
 surfaceScalarField phi
@@ -157,6 +77,59 @@ surfaceScalarField phi
     ),
     linearInterpolate(U) & mesh.Sf()
 );
+
+// Calculate rho
+
+Info<< "Reading transportProperties\n" << endl;
+immiscibleIncompressibleTwoPhaseMixture mixture(U, phi);
+
+volScalarField& alpha1(mixture.alpha1());
+volScalarField& alpha2(mixture.alpha2());
+
+const dimensionedScalar& rho1 = mixture.rho1();
+const dimensionedScalar& rho2 = mixture.rho2();
+
+isoCutCell icc(mesh, etap);
+icc.volumeOfFluid(alpha1, 0);
+alpha1.write(); //Writing volScalarField alpha1
+
+
+// Need to store rho for ddt(rho, U)
+volScalarField rho
+(
+    IOobject
+    (
+        "rho",
+        runTime.timeName(),
+        mesh,
+        IOobject::READ_IF_PRESENT
+    ),
+    alpha1*rho1 + alpha2*rho2
+);
+rho.oldTime();
+
+//Calculating velocity field
+scalarField eta = wave.getEta(x,t,phase);
+scalarField u = wave.getU(x,y,t,phase);
+scalarField v = wave.getV(x,y,t,phase);
+scalarField umax = wave.getU(x,eta,t,phase);
+scalarField vmax = wave.getV(x,eta,t,phase);
+
+
+vector uAir = vector(waveProps.lookupOrDefault<vector>("uAir",vector::zero));
+bool comoving = bool(waveProps.lookupOrDefault<bool>("comoving",0));
+scalar c = scalar(waveProps.lookupOrDefault<scalar>("c",0));
+
+forAll(U,ci)
+{
+    u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
+    v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
+    U[ci] = (
+                alpha1[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K) 
+                    + v[ci]*up) + (1-alpha1[ci])*rho2.value()*uAir
+            )/rho[ci];
+}
+U.write();
 
 //Calculating p and p_rgh
 

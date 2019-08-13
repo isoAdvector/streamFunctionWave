@@ -7,7 +7,7 @@ jobStart=$(date +"%Y%m%d%H%M")
 
 if [ ! -d "logs" ]; then
         mkdir logs
-        cp -r 0.org 0
+        cp -r 0.orig 0
         blockMesh > logs/blockMesh.log 2>&1
         topoSet -dict system/topoSetDict0 > logs/topoSetDict0.log 2>&1
         refineMesh -dict system/refineMeshDict -overwrite > logs/refineMeshDict.log 2>&1
@@ -16,9 +16,7 @@ if [ ! -d "logs" ]; then
         refineMesh -dict system/refineMeshDict -overwrite > logs/refineMeshDict.log 2>&1
 
         streamFunFoam > logs/streamFunFoam.log 2>&1
-        cp 0/alpha1 0/alpha.water
-        sed -i 's/alpha1/alpha.water/g' 0/alpha.water
-        cp 0.org/p_rgh 0/p_rgh
+        cp 0.orig/p_rgh 0/p_rgh
         cp system/controlDict.run system/controlDict
 else
         mv logs logs_$jobStart

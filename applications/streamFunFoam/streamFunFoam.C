@@ -33,6 +33,7 @@ Author
 
 #include "fvCFD.H"
 #include "streamFunctionWave.H"
+#include "immiscibleIncompressibleTwoPhaseMixture.H"
 #include "isoCutCell.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
@@ -68,7 +69,7 @@ int main(int argc, char *argv[])
         t = runTime.time().value();
         etap = wave.getEta(xp, t, phase) - yp;
         {
-            alpha1 = 0;
+            alpha1 = 0.0;
             isoCutCell icc(mesh, etap);
             icc.volumeOfFluid(alpha1, 0);
         }
