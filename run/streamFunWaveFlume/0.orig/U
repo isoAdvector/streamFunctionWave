@@ -20,26 +20,32 @@ internalField   uniform (0 0 0);
 
 boundaryField
 {
-    left            
+
+    left
     {
         type            slip;
-        value		uniform (0 0 0);
+//        type            streamFunctionWave;
+//        value     uniform (0 0 0);
     }
+
     right
     {
-	type			slip;
+        type            slip;
     }
+
     bottom
     {
-	type			slip;
+        type            slip;
     }
-    top              
+
+    top
     {
         type            pressureInletOutletVelocity;
         phi             phi;
         rho             rho;
         value           $internalField;
     }
+
     frontAndBack
     {
         type            empty;

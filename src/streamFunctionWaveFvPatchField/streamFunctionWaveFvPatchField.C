@@ -214,9 +214,9 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
         wordList phases(wordList(tp.lookupOrDefault("phases",defaultPhaseNames))); //In OF-2.3.0 the phases keyword is required in transportProperties
 
         dictionary sD1(tp.subDict(phases[0]));
-        rho1_ = (dimensionedScalar(sD1.lookup("rho"))).value();	
+        rho1_ = sD1.get<scalar>("rho");	
         dictionary sD2(tp.subDict(phases[1]));
-        rho2_ = (dimensionedScalar(sD2.lookup("rho"))).value();
+        rho2_ = sD2.get<scalar>("rho");
     }
 
     //Find minimum and maximum vertical point for each face and populate ymin_and ymax_

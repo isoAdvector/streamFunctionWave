@@ -25,6 +25,7 @@ solvers
         snapTol         1e-12;
         nAlphaBounds    3;
         clip            true;
+        reconstructionScheme isoAlpha;
 
         nAlphaCorr      2;
         nAlphaSubCycles 1;

@@ -34,7 +34,7 @@ Author
 #include "fvCFD.H"
 #include "streamFunctionWave.H"
 #include "immiscibleIncompressibleTwoPhaseMixture.H"
-#include "isoCutCell.H"
+#include "cutCellIso.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -70,8 +70,13 @@ int main(int argc, char *argv[])
         etap = wave.getEta(xp, t, phase) - yp;
         {
             alpha1 = 0.0;
-            isoCutCell icc(mesh, etap);
-            icc.volumeOfFluid(alpha1, 0);
+            scalarField& alphaIn = alpha1.primitiveFieldRef();
+            cutCellIso cci(mesh, etap);
+            forAll(alphaIn, cellI)
+            {
+                cci.calcSubCell(cellI, 0.0);
+                alphaIn[cellI] = cci.VolumeOfFluid();
+            }
         }
 
         eta = wave.getEta(x,t,phase);

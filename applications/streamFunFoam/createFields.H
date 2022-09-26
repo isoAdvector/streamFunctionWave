@@ -89,8 +89,13 @@ volScalarField& alpha2(mixture.alpha2());
 const dimensionedScalar& rho1 = mixture.rho1();
 const dimensionedScalar& rho2 = mixture.rho2();
 
-isoCutCell icc(mesh, etap);
-icc.volumeOfFluid(alpha1, 0);
+cutCellIso cci(mesh, etap);
+scalarField& alphaIn = alpha1.primitiveFieldRef();
+forAll(alphaIn, cellI)
+{
+    cci.calcSubCell(cellI, 0.0);
+    alphaIn[cellI] = cci.VolumeOfFluid();
+}
 alpha1.write(); //Writing volScalarField alpha1
 
 
