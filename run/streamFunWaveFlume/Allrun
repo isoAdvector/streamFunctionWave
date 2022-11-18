@@ -4,11 +4,20 @@ cd "${0%/*}" || exit                                # Run from this directory
 #------------------------------------------------------------------------------
 
 restore0Dir
-
-touch streamFunWaveFlume.foam
+touch waveFlume.foam
 
 runApplication blockMesh
 
-runApplication $(getApplication)
+runApplication topoSet -dict system/topoSetDict0
+mv log.topoSet log.topoSet0
+runApplication refineMesh -dict system/refineMeshDict -overwrite
+mv log.refineMesh log.refineMesh0
 
-#------------------------------------------------------------------------------
+runApplication topoSet -dict system/topoSetDict1
+mv log.topoSet log.topoSet1
+runApplication refineMesh -dict system/refineMeshDict -overwrite
+mv log.refineMesh log.refineMesh1
+
+#runApplication setFields
+
+runApplication $(getApplication)

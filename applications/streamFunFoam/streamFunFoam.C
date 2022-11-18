@@ -66,41 +66,48 @@ int main(int argc, char *argv[])
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
+        if (!runTime.writeTime())
+        {
+            continue;
+        }
+
         t = runTime.time().value();
         etap = wave.getEta(xp, t, phase) - yp;
+        alpha1 = 0.0;
+        cutCellIso cci(mesh, etap);
+        forAll(alphaIn, cellI)
         {
-            alpha1 = 0.0;
-            scalarField& alphaIn = alpha1.primitiveFieldRef();
-            cutCellIso cci(mesh, etap);
-            forAll(alphaIn, cellI)
-            {
-                cci.calcSubCell(cellI, 0.0);
-                alphaIn[cellI] = cci.VolumeOfFluid();
-            }
+            cci.calcSubCell(cellI, 0.0);
+            alphaIn[cellI] = cci.VolumeOfFluid();
         }
+        alpha1.correctBoundaryConditions();
 
-        eta = wave.getEta(x,t,phase);
-        u = wave.getU(x,y,t,phase);
-        v = wave.getV(x,y,t,phase);
-        umax = wave.getU(x,eta,t,phase);
-        vmax = wave.getV(x,eta,t,phase);
+        eta = wave.getEta(x, t, phase);
+        u = wave.getU(x, y, t, phase);
+        v = wave.getV(x, y, t, phase);
+        umax = wave.getU(x, eta, t, phase);
+        vmax = wave.getV(x, eta, t, phase);
         rho = alpha1*rho1 + (scalar(1) - alpha1)*rho2;
         pByRho = wave.getPbyRho(x, y, t, phase);
-        forAll(p, ci)
+        forAll(pIn, ci)
         {
-            p[ci] = rho[ci]*pByRho[ci];
+            pIn[ci] = rhoIn[ci]*pByRho[ci];
         }
+        p.correctBoundaryConditions();
         p_rgh = p - rho*(g & mesh.C());
 
-        forAll(U,ci)
+        vectorField& Uin = U.primitiveFieldRef();
+        forAll(Uin, ci)
         {
-            u[ci] = sign(u[ci])*min(mag(u[ci]),mag(umax[ci]));
-            v[ci] = sign(v[ci])*min(mag(v[ci]),mag(vmax[ci]));
-            U[ci] = (
-                    alpha1[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K)
-                        + v[ci]*up) + (1-alpha1[ci])*rho2.value()*uAir
-                    )/rho[ci];
+            u[ci] = sign(u[ci])*min(mag(u[ci]), mag(umax[ci]));
+            v[ci] = sign(v[ci])*min(mag(v[ci]), mag(vmax[ci]));
+            Uin[ci] = 
+                (
+                    alphaIn[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K)
+                      + v[ci]*up) + (1 - alpha1[ci])*rho2.value()*uAir
+                )/rhoIn[ci];
         }
+        U.correctBoundaryConditions();
         runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"

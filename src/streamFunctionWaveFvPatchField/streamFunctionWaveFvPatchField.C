@@ -336,21 +336,30 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 	y -= seabedHeight_; //Vertical coordinate as measured from seabed
 	
 	scalar t = this->db().time().value();
-	scalarField eta = getEta(x,t,phi_);
-	scalarField u = getU(x,y,t,phi_);
-	scalarField v = getV(x,y,t,phi_);
+	scalarField eta = getEta(x, t, phi_);
+	scalarField u = getU(x,y, t, phi_);
+	scalarField v = getV(x, y, t, phi_);
 
 	//Setting air velocity 
-	scalarField umax = getU(x,eta,t,phi_);
-	scalarField vmax = getV(x,eta,t,phi_);
+	scalarField umax = getU(x, eta, t, phi_);
+	scalarField vmax = getV(x, eta, t, phi_);
 
 	//Calculating volume fraction (assuming parallelogram shaped - e.g. 
     //rectangular - faces with horizontal sides)
 	scalarField alpha(y.size(),0.0);
 	
-	forAll(y,facei)
+	forAll(y, facei)
     {
-		alpha[facei] = min(max((eta[facei]-ymin_[facei])/(ymax_[facei]-ymin_[facei]),0.0),1.0);
+		alpha[facei] = 
+			min
+			(
+				max
+				(
+					(eta[facei] - ymin_[facei])/(ymax_[facei] - ymin_[facei]),
+					0.0
+				),
+				1.0
+			);
 
         if (ymin_[facei] > eta[facei])
         {
