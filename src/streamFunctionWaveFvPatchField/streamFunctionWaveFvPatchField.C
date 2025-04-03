@@ -123,7 +123,8 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 
 	bool calcWave(true);
 	streamFunctionWave inWave(patchInWave);	
-	if ( IFstream(outDictName) )
+	IFstream fileStream(outDictName);
+	if ( fileStream.good() )
 	{
 		dictionary oldOutDict(IFstream(outDictName)(), true);
 		if ( inWave.sameWave(oldOutDict) )
@@ -404,9 +405,8 @@ void streamFunctionWaveFvPatchField<scalar>::setField
 //	Info << "Enter streamFunctionWaveFvPatchField<scalar>::setField" << endl;
 
 	const word& fieldName = this->internalField().name();
-
-	if (fieldName == "alpha1" || fieldName == "gamma")
-	{			
+	if (fieldName == "alpha1" || fieldName == "gamma" || fieldName == "alpha.water")
+	{
 		this->refValue() = alpha;
 		this->refGrad() = 0.0;
 		this->valueFraction() = 1.0;

@@ -77,8 +77,8 @@ int main(int argc, char *argv[])
     const fileName outDictName = args[2];
 	
 	bool calcWave(true);
-
-	if ( IFstream(outDictName) )
+	IFstream fileStream(outDictName);
+	if ( fileStream.good() )
 	{
 		dictionary oldOutDict(IFstream(outDictName)(), true);
 		if ( inWave.sameWave(oldOutDict) )
