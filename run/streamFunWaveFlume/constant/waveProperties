@@ -14,39 +14,39 @@ FoamFile
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-    H    .3;
+    H              .24;
 
-    d    1;
+    d               1;
+	
+    T		1.8;
 
-    T     3;
+    uType           	2;
 
-    u    0;
+    u1or2           	0;
 
-    uType    2;
+    N           	35;
 
-    N    15;
+    nHSteps       	20;
 
-    nHSteps    10;
-
-    direction    ( 1 0 0 );
+    direction       	( 1 0 0 );
 
 left
 {
-    H    .3;
+    H              .24;
 
-    d    1;
+    d               1;
 	
-    T     3;
+    T		1.8;
 
-    u    0;
+    uType           	2;
 
-    uType    2;
+    u1or2           	0;
 
-    N    15;
+    N           	35;
 
-    nHSteps    10;
+    nHSteps       	20;
 
-    direction    ( 1 0 0 );
+    direction       	( 1 0 0 );
 }
 
 // ************************************************************************* //

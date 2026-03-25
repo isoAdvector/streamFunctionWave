@@ -22,9 +22,10 @@ boundaryField
 {
     left            
     {
-        type    zeroGradient;
-//        type    streamFunctionWave;
-//        value   uniform 0;
+        type    streamFunctionWave;
+        value   uniform 0;
+        waveDictName waveProperties;
+        waveDictPath "constant";
     }
     right
     {
