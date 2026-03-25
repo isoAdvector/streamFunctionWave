@@ -10,7 +10,7 @@ FoamFile
     version     2.0;
     format      ascii;
     class       volScalarField;
-    object      alpha;
+    object      alpha.water;
 }
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -22,9 +22,10 @@ boundaryField
 {
     left            
     {
-        type    zeroGradient;
-//        type    streamFunctionWave;
-//        value   uniform 0;
+        type    streamFunctionWave;
+        value   uniform 0;
+        waveDictName waveProperties;
+        waveDictPath "constant";
     }
     right
     {

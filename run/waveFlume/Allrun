@@ -1,34 +1,23 @@
 #!/bin/sh
+cd "${0%/*}" || exit                                # Run from this directory
+. ${WM_PROJECT_DIR:?}/bin/tools/RunFunctions        # Tutorial run functions
+#------------------------------------------------------------------------------
 
-nProc=$(sed -ne "s/^numberOfSubdomains *\(.*\);/\1/p" system/decomposeParDict)
-application=$(sed -ne "s/^application *\(.*\);/\1/p" system/controlDict)
-jobStart=$(date +"%Y%m%d%H%M")
-#host=$HOSTNAME
+restore0Dir
+touch waveFlume.foam
 
-if [ ! -d "logs" ]; then
-        mkdir logs
-        cp -r 0.org 0
-        blockMesh > logs/blockMesh.log 2>&1
-        topoSet -dict system/topoSetDict0 > logs/topoSetDict0.log 2>&1
-        refineMesh -dict system/refineMeshDict -overwrite > logs/refineMeshDict.log 2>&1
+runApplication blockMesh
 
-        topoSet -dict system/topoSetDict1 > logs/topoSetDict1.log 2>&1
-        refineMesh -dict system/refineMeshDict -overwrite > logs/refineMeshDict.log 2>&1
+runApplication topoSet -dict system/topoSetDict0
+mv log.topoSet log.topoSet0
+runApplication refineMesh -dict system/refineMeshDict -overwrite
+mv log.refineMesh log.refineMesh0
 
-        setFields > logs/setFields.log 2>&1
-else
-        mv logs logs_$jobStart
-        mkdir logs
-fi
+runApplication topoSet -dict system/topoSetDict1
+mv log.topoSet log.topoSet1
+runApplication refineMesh -dict system/refineMeshDict -overwrite
+mv log.refineMesh log.refineMesh1
 
+runApplication setFields
 
-if [ "$nProc" -gt "1" ];
-then
-        if [ ! -d "processor0" ]; then
-                decomposePar > logs/decomposePar.log 2>&1
-        fi
-        mpirun -np $nProc $application -parallel > logs/$application.log 2>&1
-else
-        $application > logs/$application.log 2>&1
-fi
-
+runApplication $(getApplication)

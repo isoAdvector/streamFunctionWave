@@ -17,7 +17,7 @@ FoamFile
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-application     interFlow;
+application     interIsoFoam;
 
 startFrom       latestTime;
 
@@ -39,7 +39,7 @@ writeFormat     ascii;
 
 writePrecision  6;
 
-writeCompression uncompressed;
+writeCompression no;
 
 timeFormat      general;
 

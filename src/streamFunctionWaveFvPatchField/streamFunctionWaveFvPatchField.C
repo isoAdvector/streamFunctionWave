@@ -123,7 +123,8 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 
 	bool calcWave(true);
 	streamFunctionWave inWave(patchInWave);	
-	if ( IFstream(outDictName) )
+	IFstream fileStream(outDictName);
+	if ( fileStream.good() )
 	{
 		dictionary oldOutDict(IFstream(outDictName)(), true);
 		if ( inWave.sameWave(oldOutDict) )
@@ -214,9 +215,9 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
         wordList phases(wordList(tp.lookupOrDefault("phases",defaultPhaseNames))); //In OF-2.3.0 the phases keyword is required in transportProperties
 
         dictionary sD1(tp.subDict(phases[0]));
-        rho1_ = (dimensionedScalar(sD1.lookup("rho"))).value();	
+        rho1_ = sD1.get<scalar>("rho");	
         dictionary sD2(tp.subDict(phases[1]));
-        rho2_ = (dimensionedScalar(sD2.lookup("rho"))).value();
+        rho2_ = sD2.get<scalar>("rho");
     }
 
     //Find minimum and maximum vertical point for each face and populate ymin_and ymax_
@@ -336,21 +337,30 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 	y -= seabedHeight_; //Vertical coordinate as measured from seabed
 	
 	scalar t = this->db().time().value();
-	scalarField eta = getEta(x,t,phi_);
-	scalarField u = getU(x,y,t,phi_);
-	scalarField v = getV(x,y,t,phi_);
+	scalarField eta = getEta(x, t, phi_);
+	scalarField u = getU(x,y, t, phi_);
+	scalarField v = getV(x, y, t, phi_);
 
 	//Setting air velocity 
-	scalarField umax = getU(x,eta,t,phi_);
-	scalarField vmax = getV(x,eta,t,phi_);
+	scalarField umax = getU(x, eta, t, phi_);
+	scalarField vmax = getV(x, eta, t, phi_);
 
 	//Calculating volume fraction (assuming parallelogram shaped - e.g. 
     //rectangular - faces with horizontal sides)
 	scalarField alpha(y.size(),0.0);
 	
-	forAll(y,facei)
+	forAll(y, facei)
     {
-		alpha[facei] = min(max((eta[facei]-ymin_[facei])/(ymax_[facei]-ymin_[facei]),0.0),1.0);
+		alpha[facei] = 
+			min
+			(
+				max
+				(
+					(eta[facei] - ymin_[facei])/(ymax_[facei] - ymin_[facei]),
+					0.0
+				),
+				1.0
+			);
 
         if (ymin_[facei] > eta[facei])
         {
@@ -404,9 +414,8 @@ void streamFunctionWaveFvPatchField<scalar>::setField
 //	Info << "Enter streamFunctionWaveFvPatchField<scalar>::setField" << endl;
 
 	const word& fieldName = this->internalField().name();
-
-	if (fieldName == "alpha1" || fieldName == "gamma")
-	{			
+	if (fieldName == "alpha1" || fieldName == "gamma" || fieldName == "alpha.water")
+	{
 		this->refValue() = alpha;
 		this->refGrad() = 0.0;
 		this->valueFraction() = 1.0;

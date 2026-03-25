@@ -20,10 +20,12 @@ internalField   uniform (0 0 0);
 
 boundaryField
 {
-    left            
+    left
     {
-        type            slip;
+        type            streamFunctionWave;
         value		uniform (0 0 0);
+        waveDictName    waveProperties;
+        waveDictPath    "constant";
     }
     right
     {
@@ -33,7 +35,7 @@ boundaryField
     {
 	type			slip;
     }
-    top              
+    top
     {
         type            pressureInletOutletVelocity;
         phi             phi;
