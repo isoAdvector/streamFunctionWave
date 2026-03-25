@@ -21,4 +21,5 @@ EXE_LIBS = \
     -linterfaceProperties \
     -limmiscibleIncompressibleTwoPhaseMixture \
     -lincompressibleTurbulenceModels \
-    -lgeometricVoF
+    -lgeometricVoF \
+    -lstreamFunctionWaveFvPatchField

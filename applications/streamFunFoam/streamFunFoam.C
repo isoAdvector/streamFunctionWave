@@ -101,6 +101,10 @@ int main(int argc, char *argv[])
                         + v[ci]*up) + (1-alpha1[ci])*rho2.value()*uAir
                     )/rho[ci];
         }
+        alpha1.correctBoundaryConditions();
+        U.correctBoundaryConditions();
+//        p.correctBoundaryConditions();
+//        p_rgh.correctBoundaryConditions();
         runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
