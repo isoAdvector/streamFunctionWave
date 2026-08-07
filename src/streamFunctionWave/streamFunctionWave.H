@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 1991-2010 OpenCFD Ltd.
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2013-2026 Johan Roenby
 -------------------------------------------------------------------------------
 License
     This file is an extension of OpenFOAM.
@@ -26,23 +28,27 @@ Class
 
 Description
     Calculates Fourier coefficients for a stream function theory wave.
-	The calculation follows the outline in section 3.1.2 of:
-	
-	Fenton, John D. "Numerical methods for nonlinear waves." Advances in 
-	coastal and ocean engineering 5 (1999): 241-324.
-	
-	Equation numbering in the source files refer to this paper.
-	
+
+    The calculation follows the outline in section 3.1.2 of:
+
+    \verbatim
+        Fenton, J. D. (1999).
+        Numerical methods for nonlinear waves.
+        Advances in Coastal and Ocean Engineering, 5, 241-324.
+    \endverbatim
+
+    Equation numbering in the source files refers to this paper.
+
 SourceFiles
     streamFunctionWave.C
-	
+
 Author
-	Johan Roenby, DHI
+    Johan Roenby, DHI
 
 \*---------------------------------------------------------------------------*/
 
-#ifndef streamFunctionWave_H
-#define streamFunctionWave_H
+#ifndef Foam_streamFunctionWave_H
+#define Foam_streamFunctionWave_H
 
 #include "scalarMatrices.H"
 
@@ -51,109 +57,137 @@ Author
 namespace Foam
 {
 
+/*---------------------------------------------------------------------------*\
+                     Class streamFunctionWave Declaration
+\*---------------------------------------------------------------------------*/
+
 class streamFunctionWave
 {
 protected:
-	//- Number of Fourier modes
-	scalar N_;
 
-	//- Fourier coefficients for velocity field and pressure
-	scalarField B_;
+    // Protected Data
 
-	//- Fourier coefficients for surface elevation
-	scalarField E_;
+        //- Number of Fourier modes
+        label N_;
 
-	//- Wave Height
-	scalar H_;
+        //- Fourier coefficients for velocity field and pressure
+        scalarField B_;
 
-	//- Mean water level
-	scalar d_;
-			
-	//- Current type
-	label uType_; //0 for wavelength input, 1 for wave period and "Eulerian" current, 2 for wave period and "Stokes" current
-	
-	//- Number of steps to reach final wave height
-	label nHsteps_;
-				
-	//- 3.1415...
-	scalar pi_;
-	
-	//- Gravitational acceleration
-	scalar g_;
+        //- Fourier coefficients for surface elevation
+        scalarField E_;
 
-	//- Current - either u1 or u2 - type determined by uType_
-	scalar u_;
+        //- Wave height
+        scalar H_;
 
-	//- Wave number k = 2*pi/lambda
-	scalar k_;
+        //- Mean water level
+        scalar d_;
 
-	//- Angular wave frequency
-	scalar omega_;
-	
-	//- Mean fluid speed in co-moving frame
-	scalar uBar_;
-	
-	//- Bernoulli constant
-	scalar R_;
+        //- Current type: 0 for wave length input, 1 for wave period and
+        //- "Eulerian" current, 2 for wave period and "Stokes" current
+        label uType_;
 
-	//- Volume flow rate per unit span underneath the waves in the co-mvoing frame
-	scalar Q_;
+        //- Number of steps to reach the final wave height
+        label nHsteps_;
 
-	void findRoot(scalarField& X, scalar h, scalar lort);
+        //- Gravitational acceleration
+        scalar g_;
 
-	scalarField fun(const scalarField& X, scalar h, scalar lort);
-	
-	scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort);
+        //- Current - either u1 or u2 - type determined by uType_
+        scalar u_;
+
+        //- Wave number, k = 2*pi/lambda
+        scalar k_;
+
+        //- Angular wave frequency
+        scalar omega_;
+
+        //- Mean fluid speed in the co-moving frame
+        scalar uBar_;
+
+        //- Bernoulli constant
+        scalar R_;
+
+        //- Volume flow rate per unit span underneath the waves in the
+        //- co-moving frame
+        scalar Q_;
+
+
+    // Protected Member Functions
+
+        //- Newton-Raphson iteration towards the wave of height h
+        void findRoot(scalarField& X, scalar h, scalar lort);
+
+        //- The set of equations to be satisfied by the wave
+        scalarField fun(const scalarField& X, scalar h, scalar lort) const;
+
+        //- Numerical Jacobian of fun()
+        scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort) const;
+
 
 public:
 
-	streamFunctionWave();
+    // Constructors
 
-	streamFunctionWave(const dictionary&);
-	
-	void readParmsFromDict(const dictionary&);
+        //- Default construct
+        streamFunctionWave();
 
-	bool sameWave(const dictionary&);
+        //- Construct from dictionary
+        explicit streamFunctionWave(const dictionary& waveDict);
 
-	void calcCoeffs();
 
-	scalarField getEta
-	(
-		const scalarField& x,
-		const scalar& time,
-		const scalar& phi
-	);
+    // Member Functions
 
-	scalarField getU
-	(
-		const scalarField& x,
-		const scalarField& y,
-		const scalar& t,
-		const scalar& phi
-	);
+        //- Read the wave parameters from the given dictionary
+        void readParmsFromDict(const dictionary& waveDict);
 
-	scalarField getV
-	(
-		const scalarField& x,
-		const scalarField& y,
-		const scalar& t,
-		const scalar& phi
-	);
+        //- True if the given dictionary describes the same wave as this one
+        bool sameWave(const dictionary& waveDict) const;
 
-	scalarField getPbyRho
-	(
-		const scalarField& x,
-		const scalarField& y,
-		const scalar& t,
-		const scalar& phi
-	);
+        //- Calculate the Fourier coefficients of the wave
+        void calcCoeffs();
 
-	//- Find x/lambda value where eta = d
-	scalar zeroPointPhase();
+        //- Surface elevation above the seabed
+        scalarField getEta
+        (
+            const scalarField& x,
+            const scalar t,
+            const scalar phi
+        ) const;
 
-	void writeDict(fileName);	
+        //- Velocity component along the direction of wave propagation
+        scalarField getU
+        (
+            const scalarField& x,
+            const scalarField& y,
+            const scalar t,
+            const scalar phi
+        ) const;
 
+        //- Vertical velocity component
+        scalarField getV
+        (
+            const scalarField& x,
+            const scalarField& y,
+            const scalar t,
+            const scalar phi
+        ) const;
+
+        //- Pressure divided by density
+        scalarField getPbyRho
+        (
+            const scalarField& x,
+            const scalarField& y,
+            const scalar t,
+            const scalar phi
+        ) const;
+
+        //- Find the x/lambda value where eta = d
+        scalar zeroPointPhase() const;
+
+        //- Write the calculated wave to the named dictionary file
+        void writeDict(const fileName& outDictName) const;
 };
+
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 

@@ -2,8 +2,10 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2011 OpenFOAM Foundation
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
+-------------------------------------------------------------------------------
+    Copyright (C) 2013-2026 Johan Roenby
 -------------------------------------------------------------------------------
 License
     This file is an extension of OpenFOAM.
@@ -22,22 +24,31 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    calcStreamFuncionWave
+    calcStreamFunctionWave
+
+Group
+    grpPreProcessingUtilities
 
 Description
     Calculates Fourier coefficients for a stream function theory wave.
-	The calculation follows the outline in section 3.1.2 of:
-	
-	Fenton, John D. "Numerical methods for nonlinear waves." Advances in 
-	coastal and ocean engineering 5 (1999): 241-324.
-	
-	Equation numbering in the source files refer to this paper.
+
+    The calculation follows the outline in section 3.1.2 of:
+
+    \verbatim
+        Fenton, J. D. (1999).
+        Numerical methods for nonlinear waves.
+        Advances in Coastal and Ocean Engineering, 5, 241-324.
+    \endverbatim
+
+    Equation numbering in the source files refers to this paper.
 
 Usage
-    - calcStreamFunctinoWave inputDict outputDict
-	
-	where inputDict contains the necessary parameters to calculate the 
-	Fourier coefficients. See waveProperties for an example.
+    \b calcStreamFunctionWave \<inputDict\> \<outputDict\>
+
+    where \<inputDict\> holds the parameters needed to calculate the Fourier
+    coefficients - see the waveProperties file next to this source for an
+    example. If \<outputDict\> already describes the same wave, it is left
+    alone and nothing is recalculated.
 
 Author
     Johan Roenby, DHI
@@ -47,7 +58,6 @@ Author
 #include "argList.H"
 #include "IFstream.H"
 #include "dictionary.H"
-#include "includeEntry.H"
 #include "streamFunctionWave.H"
 
 using namespace Foam;
@@ -55,49 +65,55 @@ using namespace Foam;
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
-{	
+{
     argList::addNote
     (
-        "Read the specified streamFunctionWaveDict input file, \n"
-		"check if identical to streamFunctionWaveDict output file \n"
-		"(if this exists) and if not calculating wave Fourier \n"
-		"coefficients and updating output file."
+        "Read the specified stream function wave input dictionary, check"
+        " whether it describes the same wave as the output dictionary"
+        " (if that exists) and if not, calculate the wave Fourier"
+        " coefficients and update the output dictionary."
     );
 
     argList::noBanner();
     argList::noParallel();
-    argList::validArgs.append("inputDict");
-	argList::validArgs.append("outputDict");
+    argList::addArgument("inputDict");
+    argList::addArgument("outputDict");
+
     argList args(argc, argv);
 
-    const string inDictName = args[1];
-    dictionary inDict(IFstream(inDictName)(), true);
-	streamFunctionWave inWave(inDict);
+    const fileName inDictName(args[1]);
+    const fileName outDictName(args[2]);
 
-    const fileName outDictName = args[2];
-	
-	bool calcWave(true);
-	IFstream fileStream(outDictName);
-	if ( fileStream.good() )
-	{
-		dictionary oldOutDict(IFstream(outDictName)(), true);
-		if ( inWave.sameWave(oldOutDict) )
-		{
-			calcWave = false;
-			Info << "Same wave in " << inDictName << " and " << outDictName << endl;
-			Info << "Not recalculating" << endl;
-		}
-	}
+    const dictionary inDict(IFstream(inDictName)(), true);
+    streamFunctionWave inWave(inDict);
 
-	if ( calcWave )
-	{
-		Info << "Calculating stream function wave..." << endl;
-		inWave.calcCoeffs();
-		Info << "Writing wave to file " << outDictName << endl;
-		inWave.writeDict(outDictName);
-	}
-	
+    bool calcWave(true);
+
+    IFstream fileStream(outDictName);
+    if (fileStream.good())
+    {
+        const dictionary oldOutDict(fileStream(), true);
+
+        if (inWave.sameWave(oldOutDict))
+        {
+            calcWave = false;
+
+            Info<< "Same wave in " << inDictName << " and " << outDictName << nl
+                << "Not recalculating" << endl;
+        }
+    }
+
+    if (calcWave)
+    {
+        Info<< "Calculating stream function wave..." << endl;
+        inWave.calcCoeffs();
+
+        Info<< "Writing wave to file " << outDictName << endl;
+        inWave.writeDict(outDictName);
+    }
+
     return 0;
 }
+
 
 // ************************************************************************* //
