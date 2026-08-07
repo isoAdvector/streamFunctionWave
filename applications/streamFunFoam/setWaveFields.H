@@ -56,14 +56,18 @@ Description
 
     phi = fvc::flux(U);
 
-    // Wave pressure, Fenton (1999), eq. (3.28), scaled with the local density
-    p.primitiveFieldRef() = rhoIn*wave.getPbyRho(xc, yc, t, phase);
+    // Wave pressure, Fenton (1999), eq. (3.28). The stream function solution
+    // only holds in the water, and its Fourier series diverges above the free
+    // surface, so the pressure is weighted with the phase fraction just as the
+    // velocity is. The air is left at the zero gauge pressure of the surface.
+    p.primitiveFieldRef() =
+        alphaIn*rho1.value()*wave.getPbyRho(xc, yc, t, phase);
 
     volScalarField::Boundary& pBf = p.boundaryFieldRef();
     forAll(pBf, patchi)
     {
         pBf[patchi] =
-            rho.boundaryField()[patchi]
+            alpha1.boundaryField()[patchi]*rho1.value()
            *wave.getPbyRho(xb[patchi], yb[patchi], t, phase);
     }
 

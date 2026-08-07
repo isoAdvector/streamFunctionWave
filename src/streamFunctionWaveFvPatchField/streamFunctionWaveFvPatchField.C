@@ -141,7 +141,7 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
         writeDict(outDictName);
     }
 
-    K_ = patchInWave.getOrDefault<vector>("direction", vector::zero);
+    K_ = patchInWave.get<vector>("direction");
 
     if (!patchInWave.readIfPresent("phase", phi_))
     {
@@ -150,22 +150,25 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 
     if (mag(up_ & K_) > SMALL)
     {
-        Info<< "Steady wave warning: Wave vector has non-zero vertical"
-            << " component which will be ignored." << endl;
+        WarningInFunction
+            << "Wave vector on patch " << this->patch().name()
+            << " has a non-zero vertical component which will be ignored."
+            << endl;
 
         K_ -= (up_ & K_)*up_;
     }
 
     if (mag(K_) < SMALL)
     {
-        // NOTE: not implemented - K_ stays zero
-        Info<< "Direction vector has zero length. Using face normals for"
-            << " wave direction." << endl;
+        FatalIOErrorInFunction(patchInWave)
+            << "The wave direction on patch " << this->patch().name()
+            << " has zero length in the horizontal plane." << nl
+            << "Deriving the wave direction from the face normals is not"
+            << " implemented, so a non-zero direction must be given."
+            << exit(FatalIOError);
     }
-    else
-    {
-        K_ = K_/mag(K_);
-    }
+
+    K_ /= mag(K_);
 
     // Setting seabedHeight_ and xWaveMaker_ with the lowest and "backmost"
     // mesh point on the patch as defaults
@@ -452,7 +455,7 @@ void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
     os.writeEntry("uType", uType_);
     os.writeEntry("u", u_);
     os.writeEntry("N", N_);
-    os.writeEntry("nHsteps", nHsteps_);
+    os.writeEntry("nHSteps", nHSteps_);
     os.writeEntry("pi", constant::mathematical::pi);
     os.writeEntry("g", g_);
     os.writeEntry("k", k_);
@@ -462,6 +465,8 @@ void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
     os.writeEntry("B", B_);
     os.writeEntry("direction", K_);
     os.writeEntry("phase", phi_);
+    os.writeEntry("seabedHeight", seabedHeight_);
+    os.writeEntry("waveMakerPos", xWaveMaker_);
     os.writeEntry("waveDictName", waveDictName_);
     os.writeEntry("waveDictPath", waveDictPath_);
 

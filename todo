@@ -2,7 +2,7 @@
 - If solution not converged it should make the simulation stop.
 - There should be an option to make kDir = Sf;
 - Test in parallel also with patch decomposed across several processors
-- Conduct investigation to come up with expressions for nModes and nHsteps as functions of H, lambda and d
+- Conduct investigation to come up with expressions for nModes and nHSteps as functions of H, lambda and d
 - Make it easy to do a scan in input space writing out all interesting quantities for each input combination.
 - Look into why waveTank crashes at time = 42. Is it because of reflections?
 - Try to make internal field values of patch cells equal to 0.5 times analytic expression + 0.5 * [what it is]

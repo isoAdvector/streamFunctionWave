@@ -10,7 +10,7 @@ u               0;
 
 N               35;
 
-nHsteps         20;
+nHSteps         20;
 
 lambda          4.5363432179787;
 

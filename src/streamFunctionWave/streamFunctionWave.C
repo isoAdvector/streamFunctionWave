@@ -33,35 +33,7 @@ using namespace Foam::constant::mathematical;
 
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
-Foam::streamFunctionWave::streamFunctionWave()
-:
-    N_(0),
-    B_(0, Zero),
-    E_(0, Zero),
-    H_(0),
-    d_(0),
-    uType_(0),
-    nHsteps_(0),
-    g_(0),
-    u_(0),
-    k_(0),
-    omega_(0),
-    uBar_(0),
-    R_(0),
-    Q_(0)
-{}
-
-
 Foam::streamFunctionWave::streamFunctionWave(const dictionary& waveDict)
-:
-    N_(waveDict.getOrDefault<label>("N", 20)),
-    B_(N_, Zero),
-    E_(N_ + 1, Zero),
-    H_(waveDict.getOrDefault<scalar>("H", 0)),
-    d_(waveDict.getOrDefault<scalar>("d", 0)),
-    uType_(waveDict.getOrDefault<label>("uType", 2)),
-    nHsteps_(waveDict.getOrDefault<label>("nHSteps", 20)),
-    g_(waveDict.getOrDefault<scalar>("g", 9.81))
 {
     readParmsFromDict(waveDict);
 }
@@ -81,7 +53,7 @@ void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
     H_ = waveDict.getOrDefault<scalar>("H", 0);
     d_ = waveDict.getOrDefault<scalar>("d", 0);
     uType_ = waveDict.getOrDefault<label>("uType", 2);
-    nHsteps_ = waveDict.getOrDefault<label>("nHSteps", 20);
+    nHSteps_ = waveDict.getOrDefault<label>("nHSteps", 20);
     g_ = waveDict.getOrDefault<scalar>("g", 9.81);
     k_ = waveDict.getOrDefault<scalar>("k", 0);
     R_ = waveDict.getOrDefault<scalar>("R", 0);
@@ -102,23 +74,36 @@ void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
         omega_ = 2*pi/tau;
         u_ = waveDict.getOrDefault<scalar>("u", 0);
     }
+    else
+    {
+        FatalIOErrorInFunction(waveDict)
+            << "uType has to be 0, 1 or 2, but was " << uType_
+            << exit(FatalIOError);
+    }
 }
 
 
 bool Foam::streamFunctionWave::sameWave(const dictionary& waveDict) const
 {
-    bool sameWave(true);
+    // A dictionary written by an older version has no nHSteps entry, so it
+    // cannot be matched and the wave is recalculated
+    label nHSteps(0);
+    if (!waveDict.readIfPresent("nHSteps", nHSteps))
+    {
+        return false;
+    }
 
     const scalar H(waveDict.get<scalar>("H"));
     const scalar d(waveDict.get<scalar>("d"));
     const label N(waveDict.get<label>("N"));
-    const label nHsteps(waveDict.get<label>("nHsteps"));
     const label uType(waveDict.get<label>("uType"));
+
+    bool sameWave(true);
 
     const scalar prec(Foam::pow(10.0, 1 - scalar(IOstream::defaultPrecision())));
 
     sameWave = sameWave && (N == N_);
-    sameWave = sameWave && (nHsteps == nHsteps_);
+    sameWave = sameWave && (nHSteps == nHSteps_);
     sameWave = sameWave && (uType == uType_);
     sameWave = sameWave && (mag(H/d - H_/d_) < prec);
 
@@ -130,14 +115,10 @@ bool Foam::streamFunctionWave::sameWave(const dictionary& waveDict) const
     {
         sameWave = sameWave && (mag(k/d - k_/d_) < prec);
     }
-    else if (uType_ == 1 || uType_ == 2)
+    else
     {
         sameWave = sameWave && (mag(omega - omega_) < prec);
         sameWave = sameWave && (mag(u - u_) < prec);
-    }
-    else
-    {
-        Info<< "uType has to be 0, 1 or 2!" << endl;
     }
 
     return sameWave;
@@ -186,7 +167,7 @@ void Foam::streamFunctionWave::calcCoeffs()
     scalarField keta(N_ + 1);
     forAll(keta, ii)
     {
-        keta[ii] = kd + 0.5*k_*(H_/nHsteps_)*Foam::cos(ii*pi/N_);
+        keta[ii] = kd + 0.5*k_*(H_/nHSteps_)*Foam::cos(ii*pi/N_);
     }
 
     // Non-dimensionalised mean horizontal velocity in the co-moving frame,
@@ -194,7 +175,7 @@ void Foam::streamFunctionWave::calcCoeffs()
     scalar u = Foam::sqrt(Foam::tanh(kd));
 
     B_ = 0;     // Fourier coefficients
-    B_[0] = 0.5*k_*(H_/nHsteps_)/u;
+    B_[0] = 0.5*k_*(H_/nHSteps_)/u;
 
     // Non-dimensionalised volume flux in the co-moving frame, q = Q*sqrt(k^3/g)
     scalar q = kd*u;
@@ -218,12 +199,12 @@ void Foam::streamFunctionWave::calcCoeffs()
     x[2*N_ + 4] = r;
 
     // Finding root in parameter space
-    for (label ii = 1; ii <= nHsteps_; ++ii)
+    for (label ii = 1; ii <= nHSteps_; ++ii)
     {
-        findRoot(x, ii*H_/nHsteps_/d_, lort);
+        findRoot(x, ii*H_/nHSteps_/d_, lort);
 
-        Info<< "Iteration " << ii << " of " << nHsteps_
-            << " with H/d = " << ii*H_/nHsteps_/d_
+        Info<< "Iteration " << ii << " of " << nHSteps_
+            << " with H/d = " << ii*H_/nHSteps_/d_
             << " gave kd = " << x[2*N_ + 2] << endl;
     }
 
@@ -277,6 +258,7 @@ void Foam::streamFunctionWave::findRoot
 )
 {
     const scalar tol(1e-5);     // HARDCODED TOLERANCE
+    const label maxIter(50);    // HARDCODED ITERATION LIMIT
 
     scalar err(2*tol);
     label nIter(0);
@@ -293,6 +275,17 @@ void Foam::streamFunctionWave::findRoot
         ++nIter;
 
         Info<< "Root iteration: " << nIter << " Error = " << err << endl;
+
+        if (nIter >= maxIter && err > tol)
+        {
+            FatalErrorInFunction
+                << "Stream function wave did not converge in " << maxIter
+                << " iterations. Error = " << err
+                << " with tolerance " << tol << nl
+                << "The wave of height H/d = " << h
+                << " is probably too steep. Try increasing nHSteps or N."
+                << exit(FatalError);
+        }
     }
 }
 
@@ -557,7 +550,7 @@ void Foam::streamFunctionWave::writeDict(const fileName& outDictName) const
     outDict.set("uType", uType_);
     outDict.set("u", u_);
     outDict.set("N", N_);
-    outDict.set("nHsteps", nHsteps_);
+    outDict.set("nHSteps", nHSteps_);
 
     const scalar lambda = 2*pi/k_;
     outDict.set("lambda", lambda);

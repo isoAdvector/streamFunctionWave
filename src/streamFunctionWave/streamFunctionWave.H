@@ -68,7 +68,7 @@ protected:
     // Protected Data
 
         //- Number of Fourier modes
-        label N_;
+        label N_ = 0;
 
         //- Fourier coefficients for velocity field and pressure
         scalarField B_;
@@ -77,39 +77,39 @@ protected:
         scalarField E_;
 
         //- Wave height
-        scalar H_;
+        scalar H_ = 0;
 
         //- Mean water level
-        scalar d_;
+        scalar d_ = 0;
 
         //- Current type: 0 for wave length input, 1 for wave period and
         //- "Eulerian" current, 2 for wave period and "Stokes" current
-        label uType_;
+        label uType_ = 0;
 
         //- Number of steps to reach the final wave height
-        label nHsteps_;
+        label nHSteps_ = 0;
 
         //- Gravitational acceleration
-        scalar g_;
+        scalar g_ = 0;
 
         //- Current - either u1 or u2 - type determined by uType_
-        scalar u_;
+        scalar u_ = 0;
 
         //- Wave number, k = 2*pi/lambda
-        scalar k_;
+        scalar k_ = 0;
 
         //- Angular wave frequency
-        scalar omega_;
+        scalar omega_ = 0;
 
         //- Mean fluid speed in the co-moving frame
-        scalar uBar_;
+        scalar uBar_ = 0;
 
         //- Bernoulli constant
-        scalar R_;
+        scalar R_ = 0;
 
         //- Volume flow rate per unit span underneath the waves in the
         //- co-moving frame
-        scalar Q_;
+        scalar Q_ = 0;
 
 
     // Protected Member Functions
@@ -129,7 +129,7 @@ public:
     // Constructors
 
         //- Default construct
-        streamFunctionWave();
+        streamFunctionWave() = default;
 
         //- Construct from dictionary
         explicit streamFunctionWave(const dictionary& waveDict);
