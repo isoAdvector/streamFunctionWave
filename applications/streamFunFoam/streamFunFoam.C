@@ -2,11 +2,13 @@
   =========                 |
   \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
    \\    /   O peration     |
-    \\  /    A nd           | Copyright (C) 2011-2013 OpenFOAM Foundation
+    \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
+    Copyright (C) 2013-2026 Johan Roenby
+-------------------------------------------------------------------------------
 License
-    This file is an extenstion of OpenFOAM.
+    This file is an extension of OpenFOAM.
 
     OpenFOAM is free software: you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by
@@ -22,34 +24,93 @@ License
     along with OpenFOAM.  If not, see <http://www.gnu.org/licenses/>.
 
 Application
-    streamFunFoam calculates the theoretical alpha1 and U for a stream function
-    wave. This application is used to validate stream function waves generated
-    with CFD.
+    streamFunFoam
+
+Description
+    Sets the alpha, U, phi, p and p_rgh fields of an interFoam type case to
+    the analytical solution of a stream function theory wave, at every time
+    step, and writes them at every write time.
+
+    The wave is calculated with the streamFunctionWave class following:
+
+    \verbatim
+        Fenton, J. D. (1999).
+        Numerical methods for nonlinear waves.
+        Advances in Coastal and Ocean Engineering, 5, 241-324.
+    \endverbatim
+
+    No equations are solved - the fields are explicit functions of position
+    and time - so the utility serves two purposes:
+
+      -# generating consistent initial conditions for a wave simulation, and
+      -# generating a reference solution to compare simulation results with.
+
+    The fields are updated at every time step, with the time step controlled
+    by maxCo, maxAlphaCo and maxDeltaT exactly as in the VoF solvers, so that
+    function objects sample the wave at the same rate as in the simulation
+    being compared with.
+
+Usage
+    Requires the following case files:
+
+      - constant/waveProperties: wave input, see the waveProperties file of
+        the calcStreamFunctionWave application. In addition this utility
+        reads:
+          - direction:     wave propagation direction (mandatory)
+          - waveMakerPos:  origin of the horizontal coordinate
+                           (default: lowest x of the mesh in the wave
+                           direction)
+          - seabedHeight:  origin of the vertical coordinate
+                           (default: lowest point of the mesh)
+          - phase:         wave phase in wave lengths
+                           (default: eta = d at x = 0, t = 0)
+          - uAir:          uniform velocity assigned to the air phase
+                           (default: (0 0 0))
+          - comoving:      subtract the wave celerity from the water velocity
+                           (default: false)
+          - c:             wave celerity used when comoving is true
+                           (default: 0)
+
+      - constant/transportProperties: phase names and densities
+      - constant/g
+      - 0/alpha.<phase1>, 0/U and 0/p_rgh
 
 Author
-    Johan Roenby, DHI
+    Johan Roenby, STROMNING
 
 \*---------------------------------------------------------------------------*/
 
 #include "fvCFD.H"
-#include "streamFunctionWave.H"
-#include "immiscibleIncompressibleTwoPhaseMixture.H"
+#include "incompressibleTwoPhaseMixture.H"
 #include "cutCellIso.H"
+#include "streamFunctionWave.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
 int main(int argc, char *argv[])
 {
-    #include "setRootCase.H"
+    argList::addNote
+    (
+        "Set the two-phase fields of an interFoam type case to the"
+        " analytical solution of a stream function theory wave"
+        " and write them at every write time."
+    );
+
+    #include "setRootCaseLists.H"
     #include "createTime.H"
     #include "createMesh.H"
     #include "createTimeControls.H"
-
     #include "createFields.H"
-    #include "readTimeControls.H"
-    #include "CourantNo.H"
-    #include "setInitialDeltaT.H"
 
+    // Fields at the start time
+    #include "setWaveFields.H"
+
+    Info<< "Writing fields for time = " << runTime.timeName() << nl << endl;
+    alpha1.write();
+    U.write();
+    phi.write();
+    p.write();
+    p_rgh.write();
 
     // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -57,65 +118,24 @@ int main(int argc, char *argv[])
 
     while (runTime.run())
     {
+        // Follow the time step the VoF solvers would take for this wave
         #include "readTimeControls.H"
         #include "CourantNo.H"
         #include "alphaCourantNo.H"
         #include "setDeltaT.H"
 
-        runTime++;
+        ++runTime;
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
 
-        if (!runTime.writeTime())
+        #include "setWaveFields.H"
+
+        if (runTime.writeTime())
         {
-            continue;
+            runTime.write();
         }
 
-        t = runTime.time().value();
-        etap = wave.getEta(xp, t, phase) - yp;
-        alpha1 = 0.0;
-        cutCellIso cci(mesh, etap);
-        forAll(alphaIn, cellI)
-        {
-            cci.calcSubCell(cellI, 0.0);
-            alphaIn[cellI] = cci.VolumeOfFluid();
-        }
-        alpha1.correctBoundaryConditions();
-
-        eta = wave.getEta(x, t, phase);
-        u = wave.getU(x, y, t, phase);
-        v = wave.getV(x, y, t, phase);
-        umax = wave.getU(x, eta, t, phase);
-        vmax = wave.getV(x, eta, t, phase);
-        rho = alpha1*rho1 + (scalar(1) - alpha1)*rho2;
-        pByRho = wave.getPbyRho(x, y, t, phase);
-        forAll(pIn, ci)
-        {
-            pIn[ci] = rhoIn[ci]*pByRho[ci];
-        }
-        p.correctBoundaryConditions();
-        p_rgh = p - rho*(g & mesh.C());
-
-        vectorField& Uin = U.primitiveFieldRef();
-        forAll(Uin, ci)
-        {
-            u[ci] = sign(u[ci])*min(mag(u[ci]), mag(umax[ci]));
-            v[ci] = sign(v[ci])*min(mag(v[ci]), mag(vmax[ci]));
-            Uin[ci] = 
-                (
-                    alphaIn[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K)
-                      + v[ci]*up) + (1 - alpha1[ci])*rho2.value()*uAir
-                )/rhoIn[ci];
-        }
-        alpha1.correctBoundaryConditions();
-        U.correctBoundaryConditions();
-//        p.correctBoundaryConditions();
-//        p_rgh.correctBoundaryConditions();
-        runTime.write();
-
-        Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
-            << "  ClockTime = " << runTime.elapsedClockTime() << " s"
-            << nl << endl;
+        runTime.printExecutionTime(Info);
     }
 
     Info<< "End\n" << endl;

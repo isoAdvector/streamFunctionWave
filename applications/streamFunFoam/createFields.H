@@ -1,54 +1,91 @@
 #include "readGravitationalAcceleration.H"
-vector up = -g.value();
-up /= mag(up);
 
-IOdictionary waveProps
+Info<< "Reading waveProperties\n" << endl;
+
+IOdictionary waveProperties
 (
-	IOobject
-	(
-		"waveProperties",
-		runTime.constant(),
-		mesh,
-		IOobject::MUST_READ,
-		IOobject::NO_WRITE
-	)
+    IOobject
+    (
+        "waveProperties",
+        runTime.constant(),
+        mesh,
+        IOobject::MUST_READ,
+        IOobject::NO_WRITE
+    )
 );
 
-vector K(waveProps.lookupOrDefault<vector>("direction", vector::zero));
+Info<< "Calculating stream function wave coefficients" << endl;
 
-scalar ymin(1e20), xmin(1e20);
-const pointField& pts = mesh.points();
-
-ymin = gMin(up & pts);
-xmin = gMin(K & pts);
-
-scalar xWaveMaker = waveProps.lookupOrDefault<scalar>("waveMakerPos", xmin);
-scalar seabedHeight = waveProps.lookupOrDefault<scalar>("seabedHeight", ymin);
-
-scalarField x = (K/mag(K)) & mesh.C();
-x -= xWaveMaker;
-scalarField y = up & mesh.C();
-y -= seabedHeight; //Vertical coordinate as measured from seabed
-
-streamFunctionWave wave(waveProps);
+streamFunctionWave wave(waveProperties);
 wave.calcCoeffs();
-scalar phase = 0;
-if ( waveProps.found("phase") )
+
+// Unit vector pointing up and unit vector in the wave propagation direction
+const vector up(normalised(-g.value()));
+const vector kDir(normalised(waveProperties.get<vector>("direction")));
+
+// Origin of the wave coordinate system. By default the wave starts at the
+// backmost mesh point and the water depth is measured from the lowest one.
+const scalar xWaveMaker
+(
+    waveProperties.getOrDefault<scalar>
+    (
+        "waveMakerPos",
+        gMin(kDir & mesh.points())
+    )
+);
+
+const scalar seabedHeight
+(
+    waveProperties.getOrDefault<scalar>
+    (
+        "seabedHeight",
+        gMin(up & mesh.points())
+    )
+);
+
+// Wave phase in wave lengths. Default puts the still water level at x = 0
+// for t = 0.
+const scalar phase
+(
+    waveProperties.getOrDefault<scalar>("phase", 1.0 - wave.zeroPointPhase())
+);
+
+Info<< "Wave direction: " << kDir << nl
+    << "Wave maker position: " << xWaveMaker << nl
+    << "Seabed height: " << seabedHeight << nl
+    << "Wave phase: " << phase << " wave lengths" << nl << endl;
+
+// Wave coordinates of the mesh points and of the cell centres: xp/xc measured
+// along the wave direction from the wave maker, yp/yc measured up from the
+// seabed.
+const scalarField xp((kDir & mesh.points()) - xWaveMaker);
+const scalarField yp((up & mesh.points()) - seabedHeight);
+
+const scalarField xc((kDir & mesh.C().primitiveField()) - xWaveMaker);
+const scalarField yc((up & mesh.C().primitiveField()) - seabedHeight);
+
+// Wave coordinates of the boundary face centres
+List<scalarField> xb(mesh.boundary().size());
+List<scalarField> yb(mesh.boundary().size());
+forAll(mesh.boundary(), patchi)
 {
-    phase = waveProps.lookupOrDefault<scalar>("phase", 0.0);
-}
-else
-{
-    phase = 1.0 - wave.zeroPointPhase();
+    const vectorField Cf(mesh.boundary()[patchi].Cf());
+    xb[patchi] = (kDir & Cf) - xWaveMaker;
+    yb[patchi] = (up & Cf) - seabedHeight;
 }
 
-//Setting stream function alpha field in whole domain
-scalar t = runTime.time().value();
-scalarField xp = ((K/mag(K)) & pts);
-xp -= xWaveMaker;
-scalarField yp = (up & pts);
-yp -= seabedHeight;
-scalarField etap = wave.getEta(xp, t, phase) - yp;
+// Velocity assigned to the air phase
+const vector uAir(waveProperties.getOrDefault<vector>("uAir", vector::zero));
+
+// Velocity of the frame of reference. With comoving enabled the wave is
+// stationary in the generated fields.
+const scalar uFrame
+(
+    waveProperties.getOrDefault("comoving", false)
+  ? waveProperties.get<scalar>("c")
+  : 0
+);
+
 
 Info<< "Reading field U\n" << endl;
 volVectorField U
@@ -75,13 +112,11 @@ surfaceScalarField phi
         IOobject::READ_IF_PRESENT,
         IOobject::AUTO_WRITE
     ),
-    linearInterpolate(U) & mesh.Sf()
+    fvc::flux(U)
 );
 
-// Calculate rho
-
 Info<< "Reading transportProperties\n" << endl;
-immiscibleIncompressibleTwoPhaseMixture mixture(U, phi);
+incompressibleTwoPhaseMixture mixture(U, phi);
 
 volScalarField& alpha1(mixture.alpha1());
 volScalarField& alpha2(mixture.alpha2());
@@ -89,18 +124,6 @@ volScalarField& alpha2(mixture.alpha2());
 const dimensionedScalar& rho1 = mixture.rho1();
 const dimensionedScalar& rho2 = mixture.rho2();
 
-cutCellIso cci(mesh, etap);
-scalarField& alphaIn = alpha1.primitiveFieldRef();
-forAll(alphaIn, cellI)
-{
-    cci.calcSubCell(cellI, 0.0);
-    alphaIn[cellI] = cci.VolumeOfFluid();
-}
-alpha1.correctBoundaryConditions();
-alpha1.write(); //Writing volScalarField alpha1
-
-
-// Need to store rho for ddt(rho, U)
 volScalarField rho
 (
     IOobject
@@ -108,60 +131,14 @@ volScalarField rho
         "rho",
         runTime.timeName(),
         mesh,
-        IOobject::READ_IF_PRESENT
+        IOobject::NO_READ,
+        IOobject::NO_WRITE
     ),
     alpha1*rho1 + alpha2*rho2
 );
-rho.oldTime();
-scalarField& rhoIn = rho.primitiveFieldRef();
 
-//Calculating velocity field
-scalarField eta = wave.getEta(x, t, phase);
-scalarField u = wave.getU(x, y, t, phase);
-scalarField v = wave.getV(x, y, t, phase);
-scalarField umax = wave.getU(x, eta, t, phase);
-scalarField vmax = wave.getV(x, eta, t, phase);
-
-
-vector uAir = vector(waveProps.lookupOrDefault<vector>("uAir", vector::zero));
-bool comoving = bool(waveProps.lookupOrDefault<bool>("comoving", 0));
-scalar c = scalar(waveProps.lookupOrDefault<scalar>("c", 0));
-
-vectorField& Uin = U.primitiveFieldRef();
-forAll(Uin, ci)
-{
-    u[ci] = sign(u[ci])*min(mag(u[ci]), mag(umax[ci]));
-    v[ci] = sign(v[ci])*min(mag(v[ci]), mag(vmax[ci]));
-    Uin[ci] = (
-                alphaIn[ci]*rho1.value()*((u[ci] - comoving*c)*K/mag(K) 
-                    + v[ci]*up) + (1-alphaIn[ci])*rho2.value()*uAir
-            )/rhoIn[ci];
-}
-U.correctBoundaryConditions();
-U.write();
-
-//Calculating p and p_rgh
-
-volScalarField p
-(
-    IOobject
-    (
-        "p",
-        runTime.timeName(),
-        mesh,
-        IOobject::NO_READ,
-        IOobject::AUTO_WRITE
-    ),
-    rho*(g & mesh.C())
-);
-
-scalarField pByRho = wave.getPbyRho(x, y, t, phase);
-scalarField& pIn = p.primitiveFieldRef();
-forAll(pIn, ci)
-{
-    pIn[ci] = rhoIn[ci]*pByRho[ci];
-}
-p.correctBoundaryConditions();
+// Gravitational potential of the cell centres
+const volScalarField gh("gh", g & mesh.C());
 
 Info<< "Reading field p_rgh\n" << endl;
 volScalarField p_rgh
@@ -176,28 +153,16 @@ volScalarField p_rgh
     ),
     mesh
 );
-p_rgh = p - rho*(g & mesh.C());
 
-label pRefCell = 0;
-scalar pRefValue = 0.0;
-setRefCell
+volScalarField p
 (
-    p,
-    p_rgh,
-    mesh.solutionDict().subDict("PIMPLE"),
-    pRefCell,
-    pRefValue
-);
-
-if (p_rgh.needReference())
-{
-    p += dimensionedScalar
+    IOobject
     (
         "p",
-        p.dimensions(),
-        pRefValue - getRefCellValue(p, pRefCell)
-    );
-    p_rgh = p - rho*(g & mesh.C());
-}
-p.write();
-p_rgh.write();
+        runTime.timeName(),
+        mesh,
+        IOobject::READ_IF_PRESENT,
+        IOobject::AUTO_WRITE
+    ),
+    p_rgh + rho*gh
+);
