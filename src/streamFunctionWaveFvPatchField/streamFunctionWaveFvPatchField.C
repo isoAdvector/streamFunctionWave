@@ -28,7 +28,6 @@ License
 #include "streamFunctionWaveFvPatchField.H"
 #include "volFields.H"
 #include "mathematicalConstants.H"
-#include "IFstream.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -82,70 +81,67 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
         ).value()
     );
 
-    g_ = mag(gVector);
-    up_ = -gVector/g_;
+    up_ = -gVector/mag(gVector);
 
-    const fileName waveDictPath
+    if
     (
-        UPstream::parRun()
-      ? this->db().time().path()/".."/waveDictPath_
-      : this->db().time().path()/waveDictPath_
-    );
+        dict.isDict("wave")
+     && streamFunctionWave::hasCoeffs(dict.subDict("wave"))
+    )
+    {
+        // The wave was written by this patch, e.g. before decomposePar,
+        // reconstructPar or a restart, so it is not recalculated
+        wave_.readParmsFromDict(dict.subDict("wave"));
 
-    IOdictionary waveProp
-    (
-        IOobject
+        K_ = dict.get<vector>("direction");
+        phi_ = dict.get<scalar>("phase");
+    }
+    else
+    {
+        const fileName waveDictPath
         (
-            waveDictName_,
-            waveDictPath,
-            this->db(),
-            IOobject::MUST_READ,
-            IOobject::NO_WRITE
-        )
-    );
+            UPstream::parRun()
+          ? this->db().time().path()/".."/waveDictPath_
+          : this->db().time().path()/waveDictPath_
+        );
 
-    // Wave input either at the top level or in a sub-dictionary named
-    // after the patch
-    const dictionary& patchInWave =
-        waveProp.optionalSubDict(this->patch().name());
+        IOdictionary waveProp
+        (
+            IOobject
+            (
+                waveDictName_,
+                waveDictPath,
+                this->db(),
+                IOobject::MUST_READ,
+                IOobject::NO_WRITE
+            )
+        );
 
-    const word filnam("streamFunctionWaveOutputFor" + this->patch().name());
-    const fileName outDictName(this->db().time().caseConstant()/filnam);
+        // Wave input either at the top level or in a sub-dictionary named
+        // after the patch
+        const dictionary& patchInWave =
+            waveProp.optionalSubDict(this->patch().name());
 
-    bool calcWave(true);
-
-    const streamFunctionWave inWave(patchInWave);
-
-    IFstream fileStream(outDictName);
-    if (fileStream.good())
-    {
-        dictionary oldOutDict(fileStream(), true);
-
-        if (inWave.sameWave(oldOutDict))
+        // The gravitational acceleration is taken from constant/g unless
+        // given in the wave dictionary
+        dictionary waveDict(patchInWave);
+        if (!waveDict.found("g"))
         {
-            calcWave = false;
-
-            Info<< "Wave already calculated on " << this->patch().name()
-                << "... reusing old calculation" << endl;
-
-            readParmsFromDict(oldOutDict);
+            waveDict.add("g", mag(gVector));
         }
-    }
 
-    if (calcWave)
-    {
-        Info<< "Calculating stream function wave..." << endl;
+        Info<< "Calculating stream function wave on patch "
+            << this->patch().name() << endl;
 
-        readParmsFromDict(patchInWave);
-        calcCoeffs();
-        writeDict(outDictName);
-    }
+        wave_.readParmsFromDict(waveDict);
+        wave_.calcCoeffs();
 
-    K_ = patchInWave.get<vector>("direction");
+        K_ = patchInWave.get<vector>("direction");
 
-    if (!patchInWave.readIfPresent("phase", phi_))
-    {
-        phi_ = 1.0 - zeroPointPhase();
+        if (!patchInWave.readIfPresent("phase", phi_))
+        {
+            phi_ = 1.0 - wave_.zeroPointPhase();
+        }
     }
 
     if (mag(up_ & K_) > SMALL)
@@ -160,7 +156,7 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 
     if (mag(K_) < SMALL)
     {
-        FatalIOErrorInFunction(patchInWave)
+        FatalIOErrorInFunction(dict)
             << "The wave direction on patch " << this->patch().name()
             << " has zero length in the horizontal plane." << nl
             << "Deriving the wave direction from the face normals is not"
@@ -194,31 +190,6 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 
         // Horizontal wave maker position
         xWaveMaker_ = dict.getOrDefault<scalar>("waveMakerPos", xmin);
-    }
-
-    // Reading the fluid densities
-    {
-        IOdictionary tp
-        (
-            IOobject
-            (
-                "transportProperties",
-                this->db().time().constant(),
-                this->db(),
-                IOobject::MUST_READ,
-                IOobject::NO_WRITE
-            )
-        );
-
-        // The phases keyword is required in transportProperties from
-        // OF-2.3.0 onwards
-        const wordList phases
-        (
-            tp.getOrDefault<wordList>("phases", wordList({"phase1", "phase2"}))
-        );
-
-        rho1_ = tp.subDict(phases[0]).get<scalar>("rho");
-        rho2_ = tp.subDict(phases[1]).get<scalar>("rho");
     }
 
     // Minimum and maximum vertical position of each patch face
@@ -267,14 +238,12 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 )
 :
     mixedFvPatchField<Type>(ptf, p, iF, mapper),
-    streamFunctionWave(ptf),
+    wave_(ptf.wave_),
     K_(ptf.K_),
     up_(ptf.up_),
     phi_(ptf.phi_),
     seabedHeight_(ptf.seabedHeight_),
     xWaveMaker_(ptf.xWaveMaker_),
-    rho1_(ptf.rho1_),
-    rho2_(ptf.rho2_),
     waveDictName_(ptf.waveDictName_),
     waveDictPath_(ptf.waveDictPath_),
     ymin_(ptf.ymin_),
@@ -290,14 +259,12 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 )
 :
     mixedFvPatchField<Type>(ptf, iF),
-    streamFunctionWave(ptf),
+    wave_(ptf.wave_),
     K_(ptf.K_),
     up_(ptf.up_),
     phi_(ptf.phi_),
     seabedHeight_(ptf.seabedHeight_),
     xWaveMaker_(ptf.xWaveMaker_),
-    rho1_(ptf.rho1_),
-    rho2_(ptf.rho2_),
     waveDictName_(ptf.waveDictName_),
     waveDictPath_(ptf.waveDictPath_),
     ymin_(ptf.ymin_),
@@ -324,13 +291,13 @@ void streamFunctionWaveFvPatchField<Type>::updateCoeffs()
 
     const scalar t = this->db().time().value();
 
-    const scalarField eta(getEta(x, t, phi_));
-    scalarField u(getU(x, y, t, phi_));
-    scalarField v(getV(x, y, t, phi_));
+    const scalarField eta(wave_.getEta(x, t, phi_));
+    scalarField u(wave_.getU(x, y, t, phi_));
+    scalarField v(wave_.getV(x, y, t, phi_));
 
     // Velocity at the free surface, used above it
-    const scalarField umax(getU(x, eta, t, phi_));
-    const scalarField vmax(getV(x, eta, t, phi_));
+    const scalarField umax(wave_.getU(x, eta, t, phi_));
+    const scalarField vmax(wave_.getV(x, eta, t, phi_));
 
     // Calculating the volume fraction, assuming parallelogram shaped -
     // e.g. rectangular - faces with horizontal sides
@@ -415,7 +382,7 @@ void streamFunctionWaveFvPatchField<scalar>::setField
             const fvPatchField<scalar>& rho =
                 patch().lookupPatchField<volScalarField>("rho");
 
-            this->refGrad() = -rho.snGrad()*((-g_*up_) & this->patch().Cf());
+            this->refGrad() = -rho.snGrad()*((-wave_.g()*up_) & this->patch().Cf());
             this->valueFraction() = 0.0;    // fixedGradient as in buoyantPressure
         }
         else
@@ -446,23 +413,10 @@ void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
 {
     fvPatchField<Type>::write(os);
 
-    os.writeEntry("H", H_);
-    os.writeEntry("d", d_);
-    if (omega_ > 0)     // Period is finite
-    {
-        os.writeEntry("T", 2*constant::mathematical::pi/omega_);
-    }
-    os.writeEntry("uType", uType_);
-    os.writeEntry("u", u_);
-    os.writeEntry("N", N_);
-    os.writeEntry("nHSteps", nHSteps_);
-    os.writeEntry("pi", constant::mathematical::pi);
-    os.writeEntry("g", g_);
-    os.writeEntry("k", k_);
-    os.writeEntry("R", R_);
-    os.writeEntry("uBar", uBar_);
-    os.writeEntry("E", E_);
-    os.writeEntry("B", B_);
+    os.beginBlock("wave");
+    wave_.write(os);
+    os.endBlock();
+
     os.writeEntry("direction", K_);
     os.writeEntry("phase", phi_);
     os.writeEntry("seabedHeight", seabedHeight_);

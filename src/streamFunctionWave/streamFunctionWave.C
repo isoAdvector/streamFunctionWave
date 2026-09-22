@@ -41,6 +41,14 @@ Foam::streamFunctionWave::streamFunctionWave(const dictionary& waveDict)
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
+bool Foam::streamFunctionWave::hasCoeffs(const dictionary& waveDict)
+{
+    return
+        waveDict.found("B") && waveDict.found("E") && waveDict.found("k")
+     && waveDict.found("R") && waveDict.found("uBar");
+}
+
+
 void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
 {
     N_ = waveDict.getOrDefault<label>("N", 20);
@@ -67,6 +75,14 @@ void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
         omega_ = 0;     // Co-moving frame
         // u is not used for anything in this case
     }
+    else if (uType_ == 3)
+    {
+        const scalar lambda = waveDict.get<scalar>("lambda");
+        k_ = 2*pi/lambda;
+        const scalar tau = waveDict.get<scalar>("T");
+        omega_ = 2*pi/tau;
+        // The current follows from lambda and T, so u is not used
+    }
     else if ((uType_ == 1) || (uType_ == 2))
     {
         // k_ is calculated by calcCoeffs()
@@ -77,7 +93,7 @@ void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
     else
     {
         FatalIOErrorInFunction(waveDict)
-            << "uType has to be 0, 1 or 2, but was " << uType_
+            << "uType has to be 0, 1, 2 or 3, but was " << uType_
             << exit(FatalIOError);
     }
 }
@@ -111,13 +127,16 @@ bool Foam::streamFunctionWave::sameWave(const dictionary& waveDict) const
     const scalar omega(waveDict.get<scalar>("omega"));
     const scalar u(waveDict.get<scalar>("u"));
 
-    if (uType_ == 0)
+    if (lengthInput())
     {
         sameWave = sameWave && (mag(k/d - k_/d_) < prec);
     }
-    else
+    if (uType_ != 0)
     {
         sameWave = sameWave && (mag(omega - omega_) < prec);
+    }
+    if (!lengthInput())
+    {
         sameWave = sameWave && (mag(u - u_) < prec);
     }
 
@@ -130,13 +149,14 @@ void Foam::streamFunctionWave::calcCoeffs()
     scalar lort;
     const scalar g = mag(g_);
 
-    if (uType_ == 0)
+    if (lengthInput())
     {
         // k_ set to 2*pi/lambda in readParmsFromDict()
         const scalar lambda = 2*pi/k_;
         lort = lambda/d_;   // Non-dimensionalised wave length
-        omega_ = 0;
-        // u_ not used in this case
+        // u_ not used in this case. omega_ is zero for uType 0, giving the
+        // co-moving frame, and 2*pi/T for uType 3, giving the frame in which
+        // the wave moves with celerity lambda/T.
     }
     else
     {
@@ -155,7 +175,6 @@ void Foam::streamFunctionWave::calcCoeffs()
                 )
             );
 
-        u_ /= Foam::sqrt(g*d_);
     }
 
     // Initial guess for the variables from 1st order theory
@@ -315,6 +334,9 @@ Foam::scalarField Foam::streamFunctionWave::fun
     const scalar q = x[2*N_ + 3];
     const scalar r = x[2*N_ + 4];
 
+    // Non-dimensionalised current
+    const scalar uStar = u_/Foam::sqrt(mag(g_)*d_);
+
     // Kinematic boundary condition, (3.7) in Fenton 1999
     scalarField kinBC(N_ + 1);
 
@@ -353,7 +375,7 @@ Foam::scalarField Foam::streamFunctionWave::fun
     const scalar waveHeightEq = keta[0] - keta[N_] - kd*h;
 
     scalar lastEq = 0;
-    if (uType_ == 0)
+    if (lengthInput())
     {
         // Relative wave length equation, (3.11) in Fenton 1999
         lastEq = kd - 2.0*pi/lort;
@@ -362,12 +384,12 @@ Foam::scalarField Foam::streamFunctionWave::fun
     {
         // Equation for the mean current in the laboratory frame,
         // (3.15) in Fenton 1999
-        lastEq = Foam::sqrt(kd)*u + kd*u_ - 2.0*pi/lort;
+        lastEq = Foam::sqrt(kd)*u + kd*uStar - 2.0*pi/lort;
     }
     else if (uType_ == 2)
     {
         // Equation for the mass transport velocity, (3.16) in Fenton 1999
-        lastEq = q/Foam::sqrt(kd) + kd*u_ - 2.0*pi/lort;
+        lastEq = q/Foam::sqrt(kd) + kd*uStar - 2.0*pi/lort;
     }
 
     // Writing the wave conditions into the solution vector F
@@ -557,6 +579,11 @@ void Foam::streamFunctionWave::writeDict(const fileName& outDictName) const
     outDict.set("k", k_);
     outDict.set("omega", omega_);
     outDict.set("c", omega_/k_);
+
+    // Eulerian mean current and mass transport velocity in the frame in
+    // which the wave has celerity c
+    outDict.set("u1", omega_/k_ - uBar_);
+    outDict.set("u2", omega_/k_ - Q_/d_);
     outDict.set("R", R_);
     outDict.set("uBar", uBar_);
     outDict.set("B", B_);
@@ -578,6 +605,35 @@ void Foam::streamFunctionWave::writeDict(const fileName& outDictName) const
     outDict.set("steepness", H_/lambda);
 
     outDict.write(OFstream(outDictName)(), false);
+}
+
+
+void Foam::streamFunctionWave::write(Ostream& os) const
+{
+    // The coefficients must survive a restart with a low writePrecision
+    const int oldPrecision = os.precision();
+    os.precision(max(oldPrecision, 15));
+
+    os.writeEntry("H", H_);
+    os.writeEntry("d", d_);
+    if (omega_ > 0)     // Period is finite
+    {
+        os.writeEntry("T", 2*pi/omega_);
+    }
+    os.writeEntry("lambda", 2*pi/k_);
+    os.writeEntry("uType", uType_);
+    os.writeEntry("u", u_);
+    os.writeEntry("N", N_);
+    os.writeEntry("nHSteps", nHSteps_);
+    os.writeEntry("g", g_);
+    os.writeEntry("k", k_);
+    os.writeEntry("R", R_);
+    os.writeEntry("uBar", uBar_);
+    os.writeEntry("Q", Q_);
+    os.writeEntry("E", E_);
+    os.writeEntry("B", B_);
+
+    os.precision(oldPrecision);
 }
 
 

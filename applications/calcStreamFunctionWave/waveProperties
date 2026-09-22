@@ -21,15 +21,19 @@ d    50;
 
 T    10;
 
-u    0; 	//default = 0, not used if uType = 0
+u    0; 	//default = 0, not used if uType = 0 or 3
 
 uType    2; 	//default = 2
+                //0: lambda given, wave in the frame moving with it
+                //1: T and Eulerian mean current u given
+                //2: T and mass transport velocity u given
+                //3: lambda and T given, the currents follow from them
 
 N    35; 	//default = 30
 
 nHSteps    20; 	//default = 20
 
-//length    2; 	//Must be specified if uType = 0, else not used
+//lambda    2; 	//Must be specified if uType = 0 or 3, else not used
 
 //seabedHeight    -0.3; 	//default = lowest point on patch
 

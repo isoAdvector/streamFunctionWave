@@ -39,6 +39,18 @@ Description
 
     Equation numbering in the source files refers to this paper.
 
+    The wave is specified by its height H, the mean water depth d and one of
+    the following, selected with uType:
+      - 0: the wave length lambda. The wave is given in the frame moving with
+           the wave, so it is stationary.
+      - 1: the wave period T and the Eulerian mean current u (u1 in Fenton).
+      - 2: the wave period T and the mass transport velocity u (u2 in
+           Fenton).
+      - 3: the wave length lambda and the wave period T. The wave is
+           calculated as for uType 0 and then given in the frame in which it
+           moves with celerity lambda/T. The Eulerian mean current and the
+           mass transport velocity follow from this.
+
 SourceFiles
     streamFunctionWave.C
 
@@ -82,8 +94,9 @@ protected:
         //- Mean water level
         scalar d_ = 0;
 
-        //- Current type: 0 for wave length input, 1 for wave period and
-        //- "Eulerian" current, 2 for wave period and "Stokes" current
+        //- Input type: 0 for wave length input, 1 for wave period and
+        //- "Eulerian" current, 2 for wave period and "Stokes" current,
+        //- 3 for wave length and wave period
         label uType_ = 0;
 
         //- Number of steps to reach the final wave height
@@ -114,6 +127,13 @@ protected:
 
     // Protected Member Functions
 
+        //- True if the wave length is given, so the wave period does not
+        //- enter the calculation of the Fourier coefficients
+        bool lengthInput() const noexcept
+        {
+            return uType_ == 0 || uType_ == 3;
+        }
+
         //- Newton-Raphson iteration towards the wave of height h
         void findRoot(scalarField& X, scalar h, scalar lort);
 
@@ -137,7 +157,12 @@ public:
 
     // Member Functions
 
-        //- Read the wave parameters from the given dictionary
+        //- True if the dictionary holds calculated Fourier coefficients,
+        //- as written by write()
+        static bool hasCoeffs(const dictionary& waveDict);
+
+        //- Read the wave parameters from the given dictionary. A dictionary
+        //- written by write() gives the calculated wave without calcCoeffs().
         void readParmsFromDict(const dictionary& waveDict);
 
         //- True if the given dictionary describes the same wave as this one
@@ -181,11 +206,18 @@ public:
             const scalar phi
         ) const;
 
+        //- Gravitational acceleration
+        scalar g() const noexcept { return g_; }
+
         //- Find the x/lambda value where eta = d
         scalar zeroPointPhase() const;
 
         //- Write the calculated wave to the named dictionary file
         void writeDict(const fileName& outDictName) const;
+
+        //- Write the wave parameters and Fourier coefficients as dictionary
+        //- entries, which readParmsFromDict() reads back
+        void write(Ostream& os) const;
 };
 
 

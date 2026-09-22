@@ -43,6 +43,16 @@ Description
 
     The patch works with interFoam type solvers.
 
+    The wave is calculated from the wave dictionary when the patch is first
+    constructed. The patch then writes the wave parameters and Fourier
+    coefficients to its entry in a \c wave sub-dictionary, together with the
+    wave direction, phase and origin. When the patch is constructed from an
+    entry with a \c wave sub-dictionary, e.g. by decomposePar, a restart or
+    reconstructPar, the wave is read from it without being recalculated and
+    the wave dictionary is not read. Remove the \c wave sub-dictionary (e.g.
+    by restoring 0/ from 0.orig/) to recalculate the wave after changing the
+    wave dictionary.
+
 Usage
     The wave generator patch velocity is specified in 0/U as
 
@@ -99,12 +109,14 @@ namespace Foam
 template<class Type>
 class streamFunctionWaveFvPatchField
 :
-    public mixedFvPatchField<Type>,
-    public streamFunctionWave
+    public mixedFvPatchField<Type>
 {
 protected:
 
     // Protected Data
+
+        //- The stream function wave
+        streamFunctionWave wave_;
 
         //- Wave vector
         vector K_;
@@ -120,12 +132,6 @@ protected:
 
         //- Horizontal position of the wave maker patch
         scalar xWaveMaker_;
-
-        //- Water density
-        scalar rho1_;
-
-        //- Air density
-        scalar rho2_;
 
         //- Dictionary from which to read the input data
         word waveDictName_;
