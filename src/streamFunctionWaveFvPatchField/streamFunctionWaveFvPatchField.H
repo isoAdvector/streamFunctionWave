@@ -187,10 +187,19 @@ public:
             const DimensionedField<Type, volMesh>&
         );
 
-        //- Construct and return a clone
+        //- Construct and return a clone. Both clones use the copy with an
+        //- internal field: fvPatchField::Clone is missing before v2406, and
+        //- the copy without one is deprecated from v2606.
         virtual tmp<fvPatchField<Type>> clone() const
         {
-            return fvPatchField<Type>::Clone(*this);
+            return tmp<fvPatchField<Type>>
+            (
+                new streamFunctionWaveFvPatchField<Type>
+                (
+                    *this,
+                    this->internalField()
+                )
+            );
         }
 
         //- Construct and return a clone setting internal field reference
@@ -199,7 +208,10 @@ public:
             const DimensionedField<Type, volMesh>& iF
         ) const
         {
-            return fvPatchField<Type>::Clone(*this, iF);
+            return tmp<fvPatchField<Type>>
+            (
+                new streamFunctionWaveFvPatchField<Type>(*this, iF)
+            );
         }
 
 
