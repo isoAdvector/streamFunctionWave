@@ -32,6 +32,45 @@ License
 
 using namespace Foam::constant::mathematical;
 
+// * * * * * * * * * * * * * * * Local Functions * * * * * * * * * * * * * * //
+
+namespace
+{
+
+// sinh(a)/cosh(b) and cosh(a)/cosh(b) for 0 <= a, written so that they do
+// not overflow for the large arguments of deep water (j k d > 710)
+
+inline Foam::scalar sinhByCosh(const Foam::scalar a, const Foam::scalar b)
+{
+    return (Foam::exp(a - b) - Foam::exp(-a - b))/(1 + Foam::exp(-2*b));
+}
+
+inline Foam::scalar coshByCosh(const Foam::scalar a, const Foam::scalar b)
+{
+    return (Foam::exp(a - b) + Foam::exp(-a - b))/(1 + Foam::exp(-2*b));
+}
+
+Foam::tmp<Foam::scalarField> sinhByCosh
+(
+    const Foam::scalarField& a,
+    const Foam::scalar b
+)
+{
+    return (Foam::exp(a - b) - Foam::exp(-a - b))/(1 + Foam::exp(-2*b));
+}
+
+Foam::tmp<Foam::scalarField> coshByCosh
+(
+    const Foam::scalarField& a,
+    const Foam::scalar b
+)
+{
+    return (Foam::exp(a - b) + Foam::exp(-a - b))/(1 + Foam::exp(-2*b));
+}
+
+} // End anonymous namespace
+
+
 // * * * * * * * * * * * * * * * * Constructors  * * * * * * * * * * * * * * //
 
 Foam::streamFunctionWave::streamFunctionWave(const dictionary& waveDict)
@@ -218,9 +257,23 @@ void Foam::streamFunctionWave::calcCoeffs()
     x[2*N_ + 3] = q;
     x[2*N_ + 4] = r;
 
-    // Finding root in parameter space
+    // Finding root in parameter space, stepping up the wave height. From the
+    // third step the first guess is extrapolated linearly from the solutions
+    // of the two previous heights (Fenton 1999, p. 15).
+    scalarField xPrev;
     for (label ii = 1; ii <= nHSteps_; ++ii)
     {
+        if (ii > 2)
+        {
+            const scalarField xLast(x);
+            x = 2*x - xPrev;
+            xPrev = xLast;
+        }
+        else if (ii == 2)
+        {
+            xPrev = x;
+        }
+
         findRoot(x, ii*H_/nHSteps_/d_, lort);
 
         Info<< "Iteration " << ii << " of " << nHSteps_
@@ -277,10 +330,14 @@ void Foam::streamFunctionWave::findRoot
     scalar lort
 )
 {
-    const scalar tol(1e-5);     // HARDCODED TOLERANCE
-    const label maxIter(50);    // HARDCODED ITERATION LIMIT
+    // Newton iteration until the residual of the (non-dimensional) equations
+    // is below tol, or stops decreasing below stallTol, the round-off level
+    // of the difference Jacobian in steep waves
+    const scalar tol(1e-12);
+    const scalar stallTol(1e-9);
+    const label maxIter(50);
 
-    scalar err(2*tol);
+    scalar err(max(mag(fun(X, h, lort))));
     label nIter(0);
 
     while (err > tol)
@@ -291,10 +348,17 @@ void Foam::streamFunctionWave::findRoot
         LUsolve(M, F0);         // LUsolve puts dX into F0
 
         X += F0;
-        err = max(mag(F0));
         ++nIter;
 
+        const scalar lastErr = err;
+        err = max(mag(fun(X, h, lort)));
+
         Info<< "Root iteration: " << nIter << " Error = " << err << endl;
+
+        if (err < stallTol && err > 0.5*lastErr)
+        {
+            break;
+        }
 
         if (nIter >= maxIter && err > tol)
         {
@@ -362,10 +426,9 @@ Foam::scalarField Foam::streamFunctionWave::fun
         {
             const label j = jj + 1;
 
-            kinBC[ii] +=
-                B[jj]*(Foam::sinh(j*ke)/Foam::cosh(j*kd))*Foam::cos(j*kx);
-            U += j*B[jj]*(Foam::cosh(j*ke)/Foam::cosh(j*kd))*Foam::cos(j*kx);
-            V += j*B[jj]*(Foam::sinh(j*ke)/Foam::cosh(j*kd))*Foam::sin(j*kx);
+            kinBC[ii] += B[jj]*sinhByCosh(j*ke, j*kd)*Foam::cos(j*kx);
+            U += j*B[jj]*coshByCosh(j*ke, j*kd)*Foam::cos(j*kx);
+            V += j*B[jj]*sinhByCosh(j*ke, j*kd)*Foam::sin(j*kx);
         }
 
         dynBC[ii] += 0.5*sqr(U) + 0.5*sqr(V);
@@ -415,7 +478,12 @@ Foam::scalarSquareMatrix Foam::streamFunctionWave::jac
     scalar lort
 ) const
 {
-    const scalar d(1e-10);      // HARDCODED STEP SIZE
+    // Forward differences with a step relative to each unknown, and absolute
+    // for the small high Fourier coefficients. A fixed step of 1e-10 gave
+    // derivatives with errors of about 1e-6, which made the iteration
+    // diverge for steep waves.
+    const scalar relStep(1e-7);
+    const scalar minScale(1e-3);
 
     // Constant across the columns, so evaluated once
     const scalarField F0(fun(x, h, lort));
@@ -423,6 +491,8 @@ Foam::scalarSquareMatrix Foam::streamFunctionWave::jac
     scalarSquareMatrix J(x.size());
     forAll(x, ii)
     {
+        const scalar d = relStep*max(mag(x[ii]), minScale);
+
         scalarField dx(x.size(), Zero);
         dx[ii] = d;
 
@@ -506,7 +576,7 @@ Foam::scalarField Foam::streamFunctionWave::getU
         const label jj = ii + 1;
 
         // Fenton (1999), eq. (3.24)
-        u += jj*B_[ii]*cosh(jj*k_*y)/cosh(jj*k_*d_)*cos(jj*theta);
+        u += jj*B_[ii]*coshByCosh(jj*k_*y, jj*k_*d_)*cos(jj*theta);
     }
     u *= sqrt(g_/k_);
     u += omega_/k_ - uBar_;
@@ -531,7 +601,7 @@ Foam::scalarField Foam::streamFunctionWave::getV
         const label jj = ii + 1;
 
         // Fenton (1999), eq. (3.25)
-        v += jj*B_[ii]*sinh(jj*k_*y)/cosh(jj*k_*d_)*sin(jj*theta);
+        v += jj*B_[ii]*sinhByCosh(jj*k_*y, jj*k_*d_)*sin(jj*theta);
     }
     v *= sqrt(g_/k_);
 
@@ -558,8 +628,6 @@ Foam::scalarField Foam::streamFunctionWave::getPbyRho
 
 void Foam::streamFunctionWave::writeDict(const fileName& outDictName) const
 {
-    Info<< "Enter writeDict(const fileName& outDictName)" << endl;
-
     IOstream::defaultPrecision(14);
 
     dictionary outDict(outDictName);
