@@ -164,8 +164,8 @@ runs, the input of both wave length and period (`uType` 3), `streamFunFoam`
 setting the fields at every time step, and in this release a more robust
 calculation (steep waves, and deep water, where it overflowed for kd > 20) and
 the tests. streamFunctionWave generates the waves of the test cases of
-[fluxinator](https://github.com/isoAdvector/fluxinator) and of
-[surfacePosition](https://github.com/isoAdvector/surfacePosition).
+[surfacePosition](https://github.com/isoAdvector/surfacePosition) and of
+fluxinator, a VoF solver to be released shortly.
 
 ## License
 
