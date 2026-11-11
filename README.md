@@ -6,6 +6,8 @@
 
 # streamFunctionWave
 
+Developed and maintained by Johan Roenby, [STROMNING](https://stromning.com).
+
 Steady nonlinear water waves of any height up to near breaking, on any depth,
 for OpenFOAM.com: a wave generating boundary condition, a utility that sets the
 fields of a case to the exact wave at every time step, and a utility that
@@ -177,4 +179,7 @@ distributed in the hope that it will be useful, but without any warranty; see
 
 ## Author
 
-Johan Roenby
+Johan Roenby, [STROMNING](https://stromning.com). STROMNING offers consulting,
+custom development, training and support for interfacial and multiphase flow
+simulation with OpenFOAM. Bug reports and questions are welcome as GitHub issues;
+for anything else, contact johan@stromning.com.
