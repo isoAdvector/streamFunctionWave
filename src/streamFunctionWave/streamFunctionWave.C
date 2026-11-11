@@ -699,8 +699,9 @@ void Foam::streamFunctionWave::write(Ostream& os) const
     os.writeEntry("R", R_);
     os.writeEntry("uBar", uBar_);
     os.writeEntry("Q", Q_);
-    os.writeEntry("E", E_);
-    os.writeEntry("B", B_);
+    // With the compound type List<scalar>, so that a binary stream reads them
+    E_.UList<scalar>::writeEntry("E", os);
+    B_.UList<scalar>::writeEntry("B", os);
 
     os.precision(oldPrecision);
 }

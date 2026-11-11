@@ -143,6 +143,8 @@ a minute) checks:
   H/λ = 0.1 and kd = π, and to 1e-8 at H/λ = 0.1 in deep water, where the
   difference Jacobians of both limit the agreement.
 - **The example cases** in [run](run) run for 0.2 s.
+- **Binary fields**: waveFlume written in binary and restarted, which reads
+  the wave stored in the boundary condition back from binary fields.
 
 `test/Allclean` removes the work directory.
 
