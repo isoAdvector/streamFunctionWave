@@ -5,7 +5,8 @@
     \\  /    A nd           | www.openfoam.com
      \\/     M anipulation  |
 -------------------------------------------------------------------------------
-    Copyright (C) 2013-2026 Johan Roenby
+    Copyright (C) 2012-2017 DHI A/S
+    Copyright (C) 2017-2026 Johan Roenby
 -------------------------------------------------------------------------------
 License
     This file is an extension of OpenFOAM.
@@ -51,7 +52,7 @@ Usage
     alone and nothing is recalculated.
 
 Author
-    Johan Roenby, DHI
+    Johan Roenby, DHI and STROMNING
 
 \*---------------------------------------------------------------------------*/
 
