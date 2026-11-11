@@ -1,0 +1,61 @@
+#!/bin/bash
+# Copyright (C) 2026 Johan Roenby
+# SPDX-License-Identifier: GPL-3.0-or-later
+cd "${0%/*}" || exit 1
+#------------------------------------------------------------------------------
+# Tests of streamFunctionWave, after ./Allwmake, with OpenFOAM sourced:
+#   fourier  fenton.py, an independent implementation of Fenton's Fourier
+#            method, against linear theory and Stokes waves; and
+#            calcStreamFunctionWave against fenton.py for each input type
+#   cases    the example cases in ../run, for 0.2 s each
+# Work directories are in work/. Takes about half a minute.
+#------------------------------------------------------------------------------
+
+[ -n "$WM_PROJECT_DIR" ] || { echo "Source the OpenFOAM environment first" >&2; exit 1; }
+
+fails=0
+mkdir -p work
+
+echo "=== fourier: fenton.py against linear theory and Stokes waves"
+python3 fourier/fenton.py || fails=$((fails + 1))
+
+echo
+echo "=== fourier: calcStreamFunctionWave against fenton.py"
+python3 fourier/compare.py work/fourier || fails=$((fails + 1))
+
+echo
+echo "=== cases: the example cases in ../run, 0.2 s each"
+for case in ../run/*/
+do
+    name=$(basename "$case")
+    w=work/cases/$name
+    rm -rf "$w"
+    mkdir -p work/cases
+    cp -r "$case" "$w"
+    # The run, not the initialisation by streamFunFoam in controlDict.init
+    for dict in "$w"/system/controlDict "$w"/system/controlDict.run
+    do
+        [ -f "$dict" ] || continue
+        grep -q '^deltaT *0;' "$dict" && [ "$dict" = "$w/system/controlDict" ] \
+            && [ -f "$w/system/controlDict.run" ] && continue
+        foamDictionary -entry endTime -set 0.2 "$dict" > /dev/null 2>&1
+    done
+    (cd "$w" && ./Allrun > log.Allrun 2>&1)
+    bad=$(for l in "$w"/log.*; do
+              [ "$l" = "$w/log.Allrun" ] && continue
+              tail -3 "$l" | grep -q -E '^(End|Finalising)' || basename "$l"
+          done)
+    if [ -z "$bad" ] && [ -d "$w/0.2" ]
+    then
+        echo "$name: ok"
+    else
+        echo "$name: FAILED ${bad:-no 0.2 time directory}"
+        fails=$((fails + 1))
+    fi
+done
+
+echo
+[ $fails = 0 ] && echo "ALL TESTS PASSED" || echo "$fails TESTS FAILED"
+exit $fails
+
+#------------------------------------------------------------------------------
