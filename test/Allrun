@@ -8,6 +8,7 @@ cd "${0%/*}" || exit 1
 #            method, against linear theory and Stokes waves; and
 #            calcStreamFunctionWave against fenton.py for each input type
 #   cases    the example cases in ../run, for 0.2 s each
+#   fields   the initial velocity of streamFunFoam against the wave
 #   binary   waveFlume written in binary and restarted, which reads the wave
 #            stored in the boundary condition from binary fields
 # Work directories are in work/. Takes about half a minute.
@@ -61,6 +62,19 @@ do
     done
     (cd "$w" && ./Allrun > log.Allrun 2>&1)
     check "$name" "$w" 0.2
+done
+
+echo
+echo "=== fields: initial velocity of streamFunFoam against the wave in the water cells"
+for case in work/cases/*/
+do
+    [ -f "$case"/log.streamFunFoam ] || continue
+    # Cell centres to full precision, the fields themselves have 6 digits
+    foamDictionary -entry writePrecision -set 15 "$case"/system/controlDict > /dev/null 2>&1
+    (cd "$case" && postProcess -func writeCellCentres -time 0 > log.writeCellCentres 2>&1)
+    coeffs=work/coeffs_$(basename "$case")
+    calcStreamFunctionWave "$case"/constant/waveProperties "$coeffs" > /dev/null 2>&1
+    python3 fields.py "$case" "$coeffs" || fails=$((fails + 1))
 done
 
 echo

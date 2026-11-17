@@ -30,8 +30,8 @@ Description
     rho = alpha1*rho1 + alpha2*rho2;
 
     // Wave kinematics in the cell centres. Above the free surface the Fourier
-    // series diverges, so the velocity there is limited by its value at the
-    // surface.
+    // series diverges, so the velocity of a cell centre above the surface is
+    // limited by its value at the surface. Below the surface it is exact.
     const scalarField etac(wave.getEta(xc, t, phase));
     const scalarField uc(wave.getU(xc, yc, t, phase));
     const scalarField vc(wave.getV(xc, yc, t, phase));
@@ -42,8 +42,13 @@ Description
     vectorField& UIn = U.primitiveFieldRef();
     forAll(UIn, celli)
     {
-        const scalar u = sign(uc[celli])*min(mag(uc[celli]), mag(uSurf[celli]));
-        const scalar v = sign(vc[celli])*min(mag(vc[celli]), mag(vSurf[celli]));
+        scalar u = uc[celli];
+        scalar v = vc[celli];
+        if (yc[celli] > etac[celli])
+        {
+            u = sign(u)*min(mag(u), mag(uSurf[celli]));
+            v = sign(v)*min(mag(v), mag(vSurf[celli]));
+        }
 
         // Momentum weighted mean of the water and the air velocity
         UIn[celli] =
