@@ -6,4 +6,5 @@ cd ${0%/*} || exit 1    # run from this directory
 wmake src/streamFunctionWaveFvPatchField
 
 wmake applications/calcStreamFunctionWave
+wmake applications/generateStreamFunctionWaveTable
 wmake applications/streamFunFoam

@@ -29,6 +29,7 @@ License
 #include "streamFunctionWaveFvPatchField.H"
 #include "volFields.H"
 #include "mathematicalConstants.H"
+#include "streamFunctionWaveObject.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -84,65 +85,48 @@ streamFunctionWaveFvPatchField<Type>::streamFunctionWaveFvPatchField
 
     up_ = -gVector/mag(gVector);
 
-    if
+    // The wave dictionary of the undecomposed case, also for the processor
+    // meshes of reconstructPar, whose directories have no copy of it
+    IOdictionary waveProp
     (
-        dict.isDict("wave")
-     && streamFunctionWave::hasCoeffs(dict.subDict("wave"))
-    )
-    {
-        // The wave was written by this patch, e.g. before decomposePar,
-        // reconstructPar or a restart, so it is not recalculated
-        wave_.readParmsFromDict(dict.subDict("wave"));
+        IOobject
+        (
+            waveDictName_,
+            this->db().time().globalPath()/waveDictPath_,
+            this->db(),
+            IOobject::MUST_READ,
+            IOobject::NO_WRITE
+        )
+    );
 
-        K_ = dict.get<vector>("direction");
-        phi_ = dict.get<scalar>("phase");
+    // Wave input either at the top level or in a sub-dictionary named after
+    // the patch
+    const dictionary& patchInWave =
+        waveProp.optionalSubDict(this->patch().name());
+
+    // The gravitational acceleration is taken from constant/g unless given
+    // in the wave dictionary
+    dictionary waveDict(patchInWave);
+    if (!waveDict.found("g"))
+    {
+        waveDict.add("g", mag(gVector));
     }
-    else
+
+    // The wave is calculated once for all fields on the patch, and for the
+    // fields read again at other times by post-processing utilities
+    wave_ =
+        streamFunctionWaveObject::lookupOrCreate
+        (
+            this->db(),
+            "streamFunctionWave:" + this->patch().name(),
+            streamFunctionWave(waveDict)
+        );
+
+    K_ = patchInWave.get<vector>("direction");
+
+    if (!patchInWave.readIfPresent("phase", phi_))
     {
-        const fileName waveDictPath
-        (
-            UPstream::parRun()
-          ? this->db().time().path()/".."/waveDictPath_
-          : this->db().time().path()/waveDictPath_
-        );
-
-        IOdictionary waveProp
-        (
-            IOobject
-            (
-                waveDictName_,
-                waveDictPath,
-                this->db(),
-                IOobject::MUST_READ,
-                IOobject::NO_WRITE
-            )
-        );
-
-        // Wave input either at the top level or in a sub-dictionary named
-        // after the patch
-        const dictionary& patchInWave =
-            waveProp.optionalSubDict(this->patch().name());
-
-        // The gravitational acceleration is taken from constant/g unless
-        // given in the wave dictionary
-        dictionary waveDict(patchInWave);
-        if (!waveDict.found("g"))
-        {
-            waveDict.add("g", mag(gVector));
-        }
-
-        Info<< "Calculating stream function wave on patch "
-            << this->patch().name() << endl;
-
-        wave_.readParmsFromDict(waveDict);
-        wave_.calcCoeffs();
-
-        K_ = patchInWave.get<vector>("direction");
-
-        if (!patchInWave.readIfPresent("phase", phi_))
-        {
-            phi_ = 1.0 - wave_.zeroPointPhase();
-        }
+        phi_ = 1.0 - wave_.zeroPointPhase();
     }
 
     if (mag(up_ & K_) > SMALL)
@@ -414,12 +398,16 @@ void streamFunctionWaveFvPatchField<Type>::write(Ostream& os) const
 {
     fvPatchField<Type>::write(os);
 
+    // The wave, for information: it is calculated from the wave dictionary
+    // whenever the patch is constructed
     os.beginBlock("wave");
     wave_.write(os);
-    os.endBlock();
-
     os.writeEntry("direction", K_);
     os.writeEntry("phase", phi_);
+    os.endBlock();
+
+    // Written so that the processor patches of a decomposed case keep the
+    // values of the whole patch
     os.writeEntry("seabedHeight", seabedHeight_);
     os.writeEntry("waveMakerPos", xWaveMaker_);
     os.writeEntry("waveDictName", waveDictName_);

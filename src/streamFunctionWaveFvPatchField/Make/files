@@ -1,4 +1,8 @@
 streamFunctionWaveFvPatchFields.C
+streamFunctionWaveObject.C
 ../streamFunctionWave/streamFunctionWave.C
+../streamFunctionWave/streamFunctionWaveSolver.C
+../streamFunctionWave/streamFunctionWaveTable.C
+../streamFunctionWave/streamFunctionWaveTableData.C
 
 LIB = $(FOAM_USER_LIBBIN)/libstreamFunctionWaveFvPatchField

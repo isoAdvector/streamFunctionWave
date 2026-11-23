@@ -44,15 +44,13 @@ Description
 
     The patch works with interFoam type solvers.
 
-    The wave is calculated from the wave dictionary when the patch is first
-    constructed. The patch then writes the wave parameters and Fourier
-    coefficients to its entry in a \c wave sub-dictionary, together with the
-    wave direction, phase and origin. When the patch is constructed from an
-    entry with a \c wave sub-dictionary, e.g. by decomposePar, a restart or
-    reconstructPar, the wave is read from it without being recalculated and
-    the wave dictionary is not read. Remove the \c wave sub-dictionary (e.g.
-    by restoring 0/ from 0.orig/) to recalculate the wave after changing the
-    wave dictionary.
+    The wave is calculated from the wave dictionary whenever the patch is
+    constructed: at the start of a run, at a restart, and when a utility
+    reads the field. The wave of a patch is held by the mesh
+    (streamFunctionWaveObject), so the fields of the patch, and the fields
+    read again at other times by a utility, share one calculation. The patch
+    writes the main results of the wave to a \c wave sub-dictionary of its
+    entry for information; it is not read back.
 
 Usage
     The wave generator patch velocity is specified in 0/U as

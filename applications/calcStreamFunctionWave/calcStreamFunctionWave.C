@@ -48,8 +48,7 @@ Usage
 
     where \<inputDict\> holds the parameters needed to calculate the Fourier
     coefficients - see the waveProperties file next to this source for an
-    example. If \<outputDict\> already describes the same wave, it is left
-    alone and nothing is recalculated.
+    example - and \<outputDict\> receives the calculated wave.
 
 Author
     Johan Roenby, DHI and STROMNING
@@ -69,10 +68,9 @@ int main(int argc, char *argv[])
 {
     argList::addNote
     (
-        "Read the specified stream function wave input dictionary, check"
-        " whether it describes the same wave as the output dictionary"
-        " (if that exists) and if not, calculate the wave Fourier"
-        " coefficients and update the output dictionary."
+        "Read the specified stream function wave input dictionary,"
+        " calculate the wave and write it with its Fourier coefficients"
+        " to the output dictionary."
     );
 
     argList::noBanner();
@@ -88,30 +86,11 @@ int main(int argc, char *argv[])
     const dictionary inDict(IFstream(inDictName)(), true);
     streamFunctionWave inWave(inDict);
 
-    bool calcWave(true);
+    Info<< "Calculating stream function wave..." << endl;
+    inWave.calcCoeffs();
 
-    IFstream fileStream(outDictName);
-    if (fileStream.good())
-    {
-        const dictionary oldOutDict(fileStream(), true);
-
-        if (inWave.sameWave(oldOutDict))
-        {
-            calcWave = false;
-
-            Info<< "Same wave in " << inDictName << " and " << outDictName << nl
-                << "Not recalculating" << endl;
-        }
-    }
-
-    if (calcWave)
-    {
-        Info<< "Calculating stream function wave..." << endl;
-        inWave.calcCoeffs();
-
-        Info<< "Writing wave to file " << outDictName << endl;
-        inWave.writeDict(outDictName);
-    }
+    Info<< "Writing wave to file " << outDictName << endl;
+    inWave.writeDict(outDictName);
 
     return 0;
 }

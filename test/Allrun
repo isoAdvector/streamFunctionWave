@@ -7,11 +7,20 @@ cd "${0%/*}" || exit 1
 #   fourier  fenton.py, an independent implementation of Fenton's Fourier
 #            method, against linear theory and Stokes waves; and
 #            calcStreamFunctionWave against fenton.py for each input type
+#   requests random waves over the range of the table, each against the
+#            same wave with a 1000 times smaller tolerance
+#   figures  waves at three depths, from low to the highest of the table, at
+#            three tolerances: the residuals of the surface conditions,
+#            evaluated independently of the C++ code, against the
+#            tolerance; writes the figures of the README to ../doc
 #   cases    the example cases in ../run, for 0.2 s each
 #   fields   the initial velocity of streamFunFoam against the wave
-#   binary   waveFlume written in binary and restarted, which reads the wave
-#            stored in the boundary condition from binary fields
-# Work directories are in work/. Takes about half a minute.
+#   binary   waveFlume written in binary and restarted from binary fields
+#   parallel waveFlume decomposed, run on 2 cores, reconstructed and
+#            converted to VTK: the results equal the serial ones, and the
+#            utilities calculate the wave once per mesh, not per field or
+#            time
+# Work directories are in work/. Takes a few minutes.
 #------------------------------------------------------------------------------
 
 [ -n "$WM_PROJECT_DIR" ] || { echo "Source the OpenFOAM environment first" >&2; exit 1; }
@@ -42,6 +51,26 @@ python3 fourier/fenton.py || fails=$((fails + 1))
 echo
 echo "=== fourier: calcStreamFunctionWave against fenton.py"
 python3 fourier/compare.py work/fourier || fails=$((fails + 1))
+
+echo
+echo "=== requests: random waves against the same waves to a 1000 times smaller tolerance"
+mkdir -p work/requests
+if wmake -s requests > work/requests/log.wmake 2>&1
+then
+    Test-streamFunctionWaveRequests -n 60 > work/requests/log.requests 2>&1
+    tail -3 work/requests/log.requests
+    grep -q "^60 of 60 requests ok" work/requests/log.requests \
+        || { echo "requests: FAILED, see work/requests/log.requests"; fails=$((fails + 1)); }
+else
+    echo "requests: FAILED to build, see work/requests/log.wmake"
+    fails=$((fails + 1))
+fi
+
+echo
+echo "=== figures: residuals of the surface conditions, and the figures in ../doc"
+python3 figures.py work/figures ../doc > work/figures.log 2>&1 \
+    || { tail -20 work/figures.log; fails=$((fails + 1)); }
+tail -1 work/figures.log
 
 echo
 echo "=== cases: the example cases in ../run, 0.2 s each"
@@ -89,6 +118,54 @@ foamDictionary -entry endTime -set 0.2 "$w"/system/controlDict > /dev/null 2>&1
 app=$(foamDictionary -entry application -value "$w"/system/controlDict)
 (cd "$w" && $app > log.restart 2>&1)
 check waveFlume_binary "$w" 0.2
+
+echo
+echo "=== parallel: waveFlume on 2 cores, reconstructPar and foamToVTK"
+w=work/cases/waveFlume_parallel
+rm -rf "$w"
+mkdir -p "$w"
+cp -r work/cases/waveFlume/{0,constant,system} "$w"
+rm -rf "$w"/0/uniform
+foamDictionary -entry numberOfSubdomains -set 2 "$w"/system/decomposeParDict > /dev/null 2>&1
+foamDictionary -entry method -set scotch "$w"/system/decomposeParDict > /dev/null 2>&1
+app=$(foamDictionary -entry application -value "$w"/system/controlDict)
+(
+    cd "$w" || exit
+    decomposePar > log.decomposePar 2>&1
+    mpirun -np 2 $app -parallel > log.parallel 2>&1
+    reconstructPar > log.reconstructPar 2>&1
+    foamToVTK > log.foamToVTK 2>&1
+)
+check waveFlume_parallel "$w" 0.2
+# Number of wave calculations in each log
+calcs()
+{
+    grep -c "^Calculating streamFunctionWave:" "$w/log.$1"
+}
+if [ "$(calcs decomposePar)" = 1 ] && [ "$(calcs parallel)" = 1 ] \
+&& [ "$(calcs reconstructPar)" = 2 ] && [ "$(calcs foamToVTK)" = 1 ]
+then
+    echo "parallel: wave calculated once per mesh"
+else
+    echo "parallel: FAILED, wave calculations decomposePar $(calcs decomposePar)," \
+         "solver $(calcs parallel), reconstructPar $(calcs reconstructPar)," \
+         "foamToVTK $(calcs foamToVTK); expected 1, 1, 2, 1"
+    fails=$((fails + 1))
+fi
+# The reconstructed fields against the serial run of the cases section
+python3 - "$w" work/cases/waveFlume <<'PYEOF' || fails=$((fails + 1))
+import re, sys
+def values(case, field):
+    text = open(f"{case}/0.2/{field}").read()
+    return [float(v) for v in re.findall(r"[-+]?\d[\d.eE+-]*", text.split("internalField", 1)[1])]
+bad = 0
+for field in ("U", "alpha.water"):
+    a, b = values(sys.argv[1], field), values(sys.argv[2], field)
+    d = max(abs(x - y) for x, y in zip(a, b)) if len(a) == len(b) else float("inf")
+    print(f"parallel: {field} at 0.2 s, max difference to serial {d:.3g}")
+    bad += not d < 1e-3
+sys.exit(bad)
+PYEOF
 
 echo
 [ $fails = 0 ] && echo "ALL TESTS PASSED" || echo "$fails TESTS FAILED"

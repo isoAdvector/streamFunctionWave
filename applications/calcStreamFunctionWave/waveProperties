@@ -29,9 +29,9 @@ uType    2; 	//default = 2
                 //2: T and mass transport velocity u given
                 //3: lambda and T given, the currents follow from them
 
-N    35; 	//default = 20
-
-nHSteps    20; 	//default = 20
+tolerance    1e-8; 	//default = 1e-8, largest error of the surface
+                 	//elevation (relative to H) and of the velocities
+                 	//(relative to the mean fluid speed)
 
 //lambda    2; 	//Must be specified if uType = 0 or 3, else not used
 

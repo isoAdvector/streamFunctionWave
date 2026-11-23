@@ -6,5 +6,7 @@ cd ${0%/*} || exit 1    # run from this directory
 wclean src/streamFunctionWaveFvPatchField
 rm -rf src/streamFunctionWaveFvPatchField/Make/streamFunctionWave
 wclean applications/calcStreamFunctionWave
+wclean applications/generateStreamFunctionWaveTable
+wclean test/requests
 wclean applications/streamFunFoam
 

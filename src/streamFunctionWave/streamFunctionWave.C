@@ -27,8 +27,12 @@ License
 \*---------------------------------------------------------------------------*/
 
 #include "streamFunctionWave.H"
+#include "streamFunctionWaveSolver.H"
+#include "streamFunctionWaveTable.H"
 #include "mathematicalConstants.H"
 #include "OFstream.H"
+#include "clockTime.H"
+#include "SubField.H"
 
 using namespace Foam::constant::mathematical;
 
@@ -39,16 +43,6 @@ namespace
 
 // sinh(a)/cosh(b) and cosh(a)/cosh(b) for 0 <= a, written so that they do
 // not overflow for the large arguments of deep water (j k d > 710)
-
-inline Foam::scalar sinhByCosh(const Foam::scalar a, const Foam::scalar b)
-{
-    return (Foam::exp(a - b) - Foam::exp(-a - b))/(1 + Foam::exp(-2*b));
-}
-
-inline Foam::scalar coshByCosh(const Foam::scalar a, const Foam::scalar b)
-{
-    return (Foam::exp(a - b) + Foam::exp(-a - b))/(1 + Foam::exp(-2*b));
-}
 
 Foam::tmp<Foam::scalarField> sinhByCosh
 (
@@ -81,32 +75,35 @@ Foam::streamFunctionWave::streamFunctionWave(const dictionary& waveDict)
 
 // * * * * * * * * * * * * * * * Member Functions  * * * * * * * * * * * * * //
 
-bool Foam::streamFunctionWave::hasCoeffs(const dictionary& waveDict)
-{
-    return
-        waveDict.found("B") && waveDict.found("E") && waveDict.found("k")
-     && waveDict.found("R") && waveDict.found("uBar");
-}
-
-
 void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
 {
-    N_ = waveDict.getOrDefault<label>("N", 20);
+    // The results of an earlier calculation are cleared
+    *this = streamFunctionWave();
 
-    const scalarField Btmp(N_, Zero);
-    const scalarField Etmp(N_ + 1, Zero);
+    // Once per run, not for every field read by a post-processing utility
+    static bool warnedNModes = false;
+    if (!warnedNModes && (waveDict.found("N") || waveDict.found("nHSteps")))
+    {
+        warnedNModes = true;
+        WarningInFunction
+            << "N and nHSteps are no longer used and are ignored: the"
+            << " number of Fourier modes follows from the tolerance"
+            << " (default 1e-8), and the wave is started from a table"
+            << " of precomputed waves" << endl;
+    }
 
-    E_ = waveDict.getOrDefault<scalarField>("E", Etmp);
-    B_ = waveDict.getOrDefault<scalarField>("B", Btmp);
     H_ = waveDict.getOrDefault<scalar>("H", 0);
     d_ = waveDict.getOrDefault<scalar>("d", 0);
     uType_ = waveDict.getOrDefault<label>("uType", 2);
-    nHSteps_ = waveDict.getOrDefault<label>("nHSteps", 20);
+    tolerance_ = waveDict.getOrDefault<scalar>("tolerance", 1e-8);
     g_ = waveDict.getOrDefault<scalar>("g", 9.81);
-    k_ = waveDict.getOrDefault<scalar>("k", 0);
-    R_ = waveDict.getOrDefault<scalar>("R", 0);
-    uBar_ = waveDict.getOrDefault<scalar>("uBar", 0);
-    Q_ = waveDict.getOrDefault<scalar>("Q", 0);
+
+    if (tolerance_ <= 0 || tolerance_ > 1e-3)
+    {
+        FatalIOErrorInFunction(waveDict)
+            << "tolerance has to be in (0, 1e-3], but was " << tolerance_
+            << exit(FatalIOError);
+    }
 
     if (uType_ == 0)
     {
@@ -139,372 +136,258 @@ void Foam::streamFunctionWave::readParmsFromDict(const dictionary& waveDict)
 }
 
 
-bool Foam::streamFunctionWave::sameWave(const dictionary& waveDict) const
+bool Foam::streamFunctionWave::sameInput(const streamFunctionWave& w) const
 {
-    // A dictionary written by an older version has no nHSteps entry, so it
-    // cannot be matched and the wave is recalculated
-    label nHSteps(0);
-    if (!waveDict.readIfPresent("nHSteps", nHSteps))
-    {
-        return false;
-    }
-
-    const scalar H(waveDict.get<scalar>("H"));
-    const scalar d(waveDict.get<scalar>("d"));
-    const label N(waveDict.get<label>("N"));
-    const label uType(waveDict.get<label>("uType"));
-
-    bool sameWave(true);
-
-    const scalar prec(Foam::pow(10.0, 1 - scalar(IOstream::defaultPrecision())));
-
-    sameWave = sameWave && (N == N_);
-    sameWave = sameWave && (nHSteps == nHSteps_);
-    sameWave = sameWave && (uType == uType_);
-    sameWave = sameWave && (mag(H/d - H_/d_) < prec);
-
-    const scalar k(waveDict.get<scalar>("k"));
-    const scalar omega(waveDict.get<scalar>("omega"));
-    const scalar u(waveDict.get<scalar>("u"));
-
-    if (lengthInput())
-    {
-        sameWave = sameWave && (mag(k/d - k_/d_) < prec);
-    }
-    if (uType_ != 0)
-    {
-        sameWave = sameWave && (mag(omega - omega_) < prec);
-    }
-    if (!lengthInput())
-    {
-        sameWave = sameWave && (mag(u - u_) < prec);
-    }
-
-    return sameWave;
+    // k_ is the input for wave length input only: for period input
+    // calcCoeffs() calculates it
+    return
+        H_ == w.H_ && d_ == w.d_ && uType_ == w.uType_
+     && tolerance_ == w.tolerance_ && g_ == w.g_ && omega_ == w.omega_
+     && u_ == w.u_ && (!lengthInput() || k_ == w.k_);
 }
 
 
 void Foam::streamFunctionWave::calcCoeffs()
 {
-    scalar lort;
+    typedef streamFunctionWaveSolver solver;
+
+    clockTime timer;
     const scalar g = mag(g_);
+    const streamFunctionWaveTable& table = streamFunctionWaveTable::builtIn();
+
+    if (table.empty())
+    {
+        FatalErrorInFunction
+            << "The stream function wave table is empty. Generate it with"
+            << " generateStreamFunctionWaveTable and rebuild the library."
+            << exit(FatalError);
+    }
+    if (!(H_ > 0) || !(d_ > 0))
+    {
+        FatalErrorInFunction
+            << "The wave height H and the depth d have to be positive, but"
+            << " were " << H_ << " and " << d_
+            << exit(FatalError);
+    }
+
+    const scalar h = H_/d_;
+    solver::parameters p;
+    p.h = h;
 
     if (lengthInput())
     {
-        // k_ set to 2*pi/lambda in readParmsFromDict()
-        const scalar lambda = 2*pi/k_;
-        lort = lambda/d_;   // Non-dimensionalised wave length
-        // u_ not used in this case. omega_ is zero for uType 0, giving the
-        // co-moving frame, and 2*pi/T for uType 3, giving the frame in which
-        // the wave moves with celerity lambda/T.
+        // k_ set to 2*pi/lambda in readParmsFromDict(). omega_ is zero for
+        // uType 0, giving the co-moving frame, and 2*pi/T for uType 3,
+        // giving the frame in which the wave moves with celerity lambda/T.
+        p.kd = k_*d_;
     }
     else
     {
-        const scalar tau = 2*pi/omega_;
+        // k d is an unknown, which the table gives a first value of
+        p.freeKd = true;
+        p.uType = uType_;
+        p.tau = 2*pi/omega_*Foam::sqrt(g/d_);
+        p.uStar = u_/Foam::sqrt(g*d_);
 
-        // Non-dimensionalised wave period, T*sqrt(g/d)
-        lort = tau*Foam::sqrt(g/d_);
-
-        k_ = sqr(omega_)
-           /(
-                g
-               *Foam::pow
-                (
-                    Foam::tanh(Foam::pow(omega_*Foam::sqrt(d_/g), 3.0/2.0)),
-                    2.0/3.0
-                )
-            );
-
-    }
-
-    // Initial guess for the variables from 1st order theory
-    // (Fenton 1999, p. 14)
-
-    const scalar kd = k_*d_;    // Mean depth normalised by wave number, k*d
-
-    // Non-dimensionalised surface elevation above sea level, keta = k*eta
-    scalarField keta(N_ + 1);
-    forAll(keta, ii)
-    {
-        keta[ii] = kd + 0.5*k_*(H_/nHSteps_)*Foam::cos(ii*pi/N_);
-    }
-
-    // Non-dimensionalised mean horizontal velocity in the co-moving frame,
-    // Ubar*sqrt(k/g)
-    scalar u = Foam::sqrt(Foam::tanh(kd));
-
-    B_ = 0;     // Fourier coefficients
-    B_[0] = 0.5*k_*(H_/nHSteps_)/u;
-
-    // Non-dimensionalised volume flux in the co-moving frame, q = Q*sqrt(k^3/g)
-    scalar q = kd*u;
-
-    // Non-dimensionalised constant in the Bernoulli equation, R*k/g
-    scalar r = kd + 0.5*sqr(u);
-
-    // Putting the guessed values into the x vector
-    scalarField x(2*N_ + 5);
-    forAll(keta, ii)
-    {
-        x[ii] = keta[ii];
-    }
-    forAll(B_, ii)
-    {
-        x[ii + N_ + 1] = B_[ii];
-    }
-    x[2*N_ + 1] = u;
-    x[2*N_ + 2] = kd;
-    x[2*N_ + 3] = q;
-    x[2*N_ + 4] = r;
-
-    // Finding root in parameter space, stepping up the wave height. From the
-    // third step the first guess is extrapolated linearly from the solutions
-    // of the two previous heights (Fenton 1999, p. 15).
-    scalarField xPrev;
-    for (label ii = 1; ii <= nHSteps_; ++ii)
-    {
-        if (ii > 2)
+        scalar kdOther;
+        p.kd = table.kdForPeriod(p, kdOther);
+        if (p.kd < 0)
         {
-            const scalarField xLast(x);
-            x = 2*x - xPrev;
-            xPrev = xLast;
+            FatalErrorInFunction
+                << "There is no wave of period T = " << 2*pi/omega_
+                << " with the current u = " << u_ << " (uType " << uType_
+                << ") in depth d = " << d_ << ". An opposing current may"
+                << " be too strong for the wave to propagate."
+                << exit(FatalError);
         }
-        else if (ii == 2)
+        if (kdOther > 0)
         {
-            xPrev = x;
-        }
-
-        findRoot(x, ii*H_/nHSteps_/d_, lort);
-
-        Info<< "Iteration " << ii << " of " << nHSteps_
-            << " with H/d = " << ii*H_/nHSteps_/d_
-            << " gave kd = " << x[2*N_ + 2] << endl;
-    }
-
-    // Converting the x vector into named variables
-    forAll(keta, ii)
-    {
-        keta[ii] = x[ii];
-    }
-    forAll(B_, ii)
-    {
-        B_[ii] = x[ii + N_ + 1];
-    }
-    u = x[2*N_ + 1];
-    q = x[2*N_ + 3];
-
-    k_ = x[2*N_ + 2]/d_;
-    R_ = x[2*N_ + 4]*g/k_;
-
-    // Calculating E_ using eq. (3.26) (with j running from 0 to N) and
-    // eq. (3.27) (with the RHS divided by N to correct the equation) in
-    // Fenton 1999. With these corrections A_[j] = 2/N*E_{j+1} for
-    // j = [0,N-2], and A_[N-1] = E_{N}/N.
-    scalarField etapp = keta/k_;
-    etapp[0] *= 0.5;
-    etapp[N_] *= 0.5;
-
-    E_ = 0;
-    forAll(E_, jj)
-    {
-        forAll(etapp, mm)
-        {
-            E_[jj] += etapp[mm]*Foam::cos(jj*mm*pi/N_);
+            Info<< "Note: a short wave of about lambda = "
+                << 2*pi*d_/kdOther << " has the same period and current;"
+                << " the longest wave, lambda about " << 2*pi*d_/p.kd
+                << ", is calculated" << endl;
         }
     }
-    E_[0] *= 0.5;
-    E_[N_] *= 0.5;
-    E_ /= N_;
 
-    uBar_ = u/Foam::sqrt(k_/g);
-    Q_ = q/Foam::sqrt(k_*k_*k_/g);
+    const scalar dl = p.kd/(2*pi);
+    sigma_ = table.sigma(dl, h);
 
-    Info<< "Done calculating stream function wave" << endl;
-}
-
-
-void Foam::streamFunctionWave::findRoot
-(
-    scalarField& X,
-    scalar h,
-    scalar lort
-)
-{
-    // Newton iteration until the residual of the (non-dimensional) equations
-    // is below tol, or stops decreasing below stallTol, the round-off level
-    // of the difference Jacobian in steep waves
-    const scalar tol(1e-12);
-    const scalar stallTol(1e-9);
-    const label maxIter(50);
-
-    scalar err(max(mag(fun(X, h, lort))));
-    label nIter(0);
-
-    while (err > tol)
+    if (sigma_ > 1)
     {
-        scalarField F0(fun(X, h, lort));
-        scalarSquareMatrix M(-jac(X, h, lort));
+        const scalar HtopL =
+            dl < table.dlMin()
+          ? table.HtopByLambda(table.dlMin())*dl/table.dlMin()
+          : table.HtopByLambda(dl);
+        FatalErrorInFunction
+            << "The wave of height H = " << H_ << " (H/lambda = "
+            << H_*p.kd/(2*pi*d_) << ", H/d = " << h << ") is above the"
+            << " highest wave of the table at this depth, H/lambda = "
+            << HtopL << " (H/d = " << HtopL/dl << "), by "
+            << 100*(sigma_ - 1) << " %." << nl
+            << "The highest possible wave is about 1 % (deep water) to 9 %"
+            << " (shallow water) higher than that, but too close to"
+            << " breaking to be calculated reliably."
+            << exit(FatalError);
+    }
+    if (dl < table.dlMin())
+    {
+        WarningInFunction
+            << "The relative depth d/lambda = " << dl << " is below the"
+            << " table (" << table.dlMin() << "). The wave is started from"
+            << " the shallowest waves of the table, which may be slow or"
+            << " fail." << endl;
+    }
 
-        LUsolve(M, F0);         // LUsolve puts dX into F0
+    // The round-off level of the error measure, which is relative to the
+    // wave height, so higher for small waves
+    const scalar tolMin = 1e-12 + 1e-14/h;
+    scalar tol = tolerance_;
+    if (tol < tolMin)
+    {
+        WarningInFunction
+            << "The tolerance " << tolerance_ << " is below the round-off"
+            << " level " << tolMin << " of this wave and is raised to it"
+            << endl;
+        tol = tolMin;
+    }
 
-        X += F0;
-        ++nIter;
+    // The table's number of modes for the accuracy of its guess, then more
+    // until two successive numbers of modes agree to half the tolerance
+    label N = table.guessN(dl, sigma_);
+    autoPtr<solver> s(new solver(N, p));
+    scalarField z(table.guess(dl, sigma_, *s));
+    solver::result r = s->solve(z, tol);
+    label nIter = r.iterations;
 
-        const scalar lastErr = err;
-        err = max(mag(fun(X, h, lort)));
+    const label Nmax = 2*table.genNmax();
+    DynamicList<scalar> errs;
+    label roundOff = 0;
 
-        Info<< "Root iteration: " << nIter << " Error = " << err << endl;
+    // The coarser solution of the pair with the smallest error estimate
+    autoPtr<solver> best;
+    scalarField bestZ;
+    scalar bestErr = GREAT;
+    while (true)
+    {
+        const label N2 = solver::grow(N);
+        if (N2 > Nmax && best.valid() && bestErr < 1e-9)
+        {
+            // At round-off without having detected it: the best level
+            WarningInFunction
+                << "The stream function wave reached round-off at an"
+                << " estimated error of " << bestErr << ", above the"
+                << " tolerance " << tol << endl;
+            s = std::move(best);
+            z = bestZ;
+            N = s->N();
+            errs.append(bestErr);
+            break;
+        }
+        if (N2 > Nmax)
+        {
+            FatalErrorInFunction
+                << "The stream function wave did not converge to the"
+                << " tolerance " << tol << " with " << N << " modes (the"
+                << " last difference between successive numbers of modes"
+                << " was " << (errs.empty() ? GREAT : errs.last()) << ")."
+                << " The wave is probably too close to breaking for this"
+                << " tolerance."
+                << exit(FatalError);
+        }
 
-        if (err < stallTol && err > 0.5*lastErr)
+        autoPtr<solver> s2(new solver(N2, p));
+        scalarField z2(s2->fromModal(s->toModal(z)));
+        const solver::result r2 = s2->solve(z2, tol);
+        nIter += r2.iterations;
+
+        // The difference, or the uncertainty of a solution whose iteration
+        // stalled at round-off if larger
+        const bool ok =
+            r.converged && r2.converged && s->regular(z) && s2->regular(z2);
+        const scalar diff = ok ? s->difference(z, *s2, z2) : GREAT;
+        const scalar stall = max(r.step, r2.step);
+        const scalar err = max(diff, stall);
+        errs.append(err);
+        if (err < bestErr)
+        {
+            bestErr = err;
+            best.reset(new solver(N, p));
+            bestZ = z;
+        }
+
+        if (err <= 0.5*tol)
         {
             break;
         }
 
-        if (nIter >= maxIter && err > tol)
+        // Round-off reached before the tolerance, at two successive numbers
+        // of modes: the error estimate is the uncertainty of the stalled
+        // iteration, not the truncation, or it is below 1e-9 and has stopped
+        // falling. Near the highest wave the round-off is about 1e-9, since
+        // the height there hardly determines the wave, and for steep waves
+        // generally about 1e-11.
+        const label n = errs.size();
+        const bool flat =
+            n >= 2 && err < 1e-9 && errs[n - 1] > 0.5*errs[n - 2];
+        roundOff = (ok && (stall >= diff || flat)) ? roundOff + 1 : 0;
+        if (roundOff >= 2)
         {
-            FatalErrorInFunction
-                << "Stream function wave did not converge in " << maxIter
-                << " iterations. Error = " << err
-                << " with tolerance " << tol << nl
-                << "The wave of height H/d = " << h
-                << " is probably too steep. Try increasing nHSteps or N."
-                << exit(FatalError);
-        }
-    }
-}
-
-
-Foam::scalarField Foam::streamFunctionWave::fun
-(
-    const scalarField& x,
-    scalar h,
-    scalar lort
-) const
-{
-    // Converting from the x vector into named variables
-    scalarField keta(N_ + 1);
-    forAll(keta, ii)
-    {
-        keta[ii] = x[ii];
-    }
-
-    scalarField B(N_);
-    forAll(B, ii)
-    {
-        B[ii] = x[ii + N_ + 1];
-    }
-
-    const scalar u = x[2*N_ + 1];
-    const scalar kd = x[2*N_ + 2];
-    const scalar q = x[2*N_ + 3];
-    const scalar r = x[2*N_ + 4];
-
-    // Non-dimensionalised current
-    const scalar uStar = u_/Foam::sqrt(mag(g_)*d_);
-
-    // Kinematic boundary condition, (3.7) in Fenton 1999
-    scalarField kinBC(N_ + 1);
-
-    // Dynamic boundary condition, (3.8) in Fenton 1999
-    scalarField dynBC(N_ + 1);
-
-    // Mean depth equation, (3.9) in Fenton 1999
-    scalar meanDepthEq = -(0.5/N_)*(keta[0] + keta[N_]) - kd;
-
-    forAll(kinBC, ii)
-    {
-        const scalar kx = ii*pi/N_;
-        const scalar ke = keta[ii];
-
-        kinBC[ii] = -u*ke + q;
-        dynBC[ii] = ke - r;
-
-        scalar U = -u;
-        scalar V = 0;
-
-        forAll(B, jj)
-        {
-            const label j = jj + 1;
-
-            kinBC[ii] += B[jj]*sinhByCosh(j*ke, j*kd)*Foam::cos(j*kx);
-            U += j*B[jj]*coshByCosh(j*ke, j*kd)*Foam::cos(j*kx);
-            V += j*B[jj]*sinhByCosh(j*ke, j*kd)*Foam::sin(j*kx);
+            WarningInFunction
+                << "The stream function wave reached round-off at an"
+                << " estimated error of " << err << ", above the tolerance "
+                << tol << ". Close to the highest wave of the table the"
+                << " prescribed height determines the wave only to about"
+                << " 1e-9." << endl;
+            break;
         }
 
-        dynBC[ii] += 0.5*sqr(U) + 0.5*sqr(V);
-        meanDepthEq += keta[ii]/N_;
+        s = std::move(s2);
+        z = z2;
+        r = r2;
+        N = N2;
     }
 
-    // Wave height equation, (3.10) in Fenton 1999
-    const scalar waveHeightEq = keta[0] - keta[N_] - kd*h;
-
-    scalar lastEq = 0;
-    if (lengthInput())
+    // The coarser of the two: its high Fourier coefficients are determined,
+    // and the wave is cheaper to evaluate. Its error is about the difference.
+    error_ = errs.last();
+    N_ = N;
+    const label M = s->M();
+    if (!lengthInput())
     {
-        // Relative wave length equation, (3.11) in Fenton 1999
-        lastEq = kd - 2.0*pi/lort;
+        k_ = s->kdOf(z)/d_;
     }
-    else if (uType_ == 1)
+
+    B_ = SubField<scalar>(z, N, M);
+
+    // E_j of eta = sum_j 2 E_j cos(j theta), without the trailing ones that
+    // together are below 1 % of the tolerance
+    const solver::modal md(s->toModal(z));
+    label nE = md.E.size();
+    scalar tail = 0;
+    while (nE > 2 && tail + mag(md.E[nE - 1]) < 0.01*tol*s->kH(z))
     {
-        // Equation for the mean current in the laboratory frame,
-        // (3.15) in Fenton 1999
-        lastEq = Foam::sqrt(kd)*u + kd*uStar - 2.0*pi/lort;
+        tail += mag(md.E[--nE]);
     }
-    else if (uType_ == 2)
+    E_.resize(nE);
+    forAll(E_, j)
     {
-        // Equation for the mass transport velocity, (3.16) in Fenton 1999
-        lastEq = q/Foam::sqrt(kd) + kd*uStar - 2.0*pi/lort;
+        E_[j] = 0.5*md.E[j]/k_;
     }
 
-    // Writing the wave conditions into the solution vector F
-    scalarField F(2*N_ + 5);
-    forAll(kinBC, ii)
-    {
-        F[ii] = kinBC[ii];
-        F[ii + N_ + 1] = dynBC[ii];
-    }
-    F[2*N_ + 2] = meanDepthEq;
-    F[2*N_ + 3] = waveHeightEq;
-    F[2*N_ + 4] = lastEq;
+    const scalar u = z[s->iu()];
+    const scalar q = z[s->iq()];
+    const scalar rr = z[s->ir()];
+    uBar_ = u/Foam::sqrt(k_/g);
+    Q_ = q/Foam::sqrt(k_*k_*k_/g);
+    R_ = rr*g/k_;
 
-    return F;
-}
-
-
-Foam::scalarSquareMatrix Foam::streamFunctionWave::jac
-(
-    const scalarField& x,
-    scalar h,
-    scalar lort
-) const
-{
-    // Forward differences with a step relative to each unknown, and absolute
-    // for the small high Fourier coefficients. A fixed step of 1e-10 gave
-    // derivatives with errors of about 1e-6, which made the iteration
-    // diverge for steep waves.
-    const scalar relStep(1e-7);
-    const scalar minScale(1e-3);
-
-    // Constant across the columns, so evaluated once
-    const scalarField F0(fun(x, h, lort));
-
-    scalarSquareMatrix J(x.size());
-    forAll(x, ii)
-    {
-        const scalar d = relStep*max(mag(x[ii]), minScale);
-
-        scalarField dx(x.size(), Zero);
-        dx[ii] = d;
-
-        const scalarField dF((fun(x + dx, h, lort) - F0)/d);
-
-        forAll(dF, jj)
-        {
-            J[jj][ii] = dF[jj];
-        }
-    }
-
-    return J;
+    Info<< "Stream function wave: lambda = " << 2*pi/k_
+        << ", d/lambda = " << d_*k_/(2*pi)
+        << ", H/lambda = " << H_*k_/(2*pi)
+        << ", H/H_top = " << sigma_ << nl
+        << "    " << N_ << " Fourier modes, estimated error " << error_
+        << " (tolerance " << tol << "), " << nIter << " iterations, "
+        << timer.elapsedTime() << " s" << endl;
 }
 
 
@@ -628,37 +511,39 @@ Foam::scalarField Foam::streamFunctionWave::getPbyRho
 
 void Foam::streamFunctionWave::writeDict(const fileName& outDictName) const
 {
-    IOstream::defaultPrecision(14);
+    OFstream os(outDictName);
+    os.precision(15);
 
-    dictionary outDict(outDictName);
-
-    outDict.set("H", H_);
-    outDict.set("d", d_);
+    os.writeEntry("H", H_);
+    os.writeEntry("d", d_);
+    os.writeEntry("g", g_);
     if (omega_ > 0)     // Period is finite
     {
-        outDict.set("T", 2*pi/omega_);
+        os.writeEntry("T", 2*pi/omega_);
     }
-    outDict.set("uType", uType_);
-    outDict.set("u", u_);
-    outDict.set("N", N_);
-    outDict.set("nHSteps", nHSteps_);
+    os.writeEntry("uType", uType_);
+    os.writeEntry("u", u_);
+    os.writeEntry("tolerance", tolerance_);
+    os.writeEntry("N", N_);
+    os.writeEntry("error", error_);
+    os.writeEntry("HbyHtop", sigma_);
 
     const scalar lambda = 2*pi/k_;
-    outDict.set("lambda", lambda);
-    outDict.set("k", k_);
-    outDict.set("omega", omega_);
-    outDict.set("c", omega_/k_);
+    os.writeEntry("lambda", lambda);
+    os.writeEntry("k", k_);
+    os.writeEntry("omega", omega_);
+    os.writeEntry("c", omega_/k_);
 
     // Eulerian mean current and mass transport velocity in the frame in
     // which the wave has celerity c
-    outDict.set("u1", omega_/k_ - uBar_);
-    outDict.set("u2", omega_/k_ - Q_/d_);
-    outDict.set("R", R_);
-    outDict.set("uBar", uBar_);
-    outDict.set("B", B_);
-    outDict.set("E", E_);
-    outDict.set("Q", Q_);
-    outDict.set("T0", lambda*d_/Q_);
+    os.writeEntry("u1", omega_/k_ - uBar_);
+    os.writeEntry("u2", omega_/k_ - Q_/d_);
+    os.writeEntry("R", R_);
+    os.writeEntry("uBar", uBar_);
+    os.writeEntry("B", B_);
+    os.writeEntry("E", E_);
+    os.writeEntry("Q", Q_);
+    os.writeEntry("T0", lambda*d_/Q_);
 
     scalarField x(2);
     x[0] = 0;
@@ -667,22 +552,16 @@ void Foam::streamFunctionWave::writeDict(const fileName& outDictName) const
     const scalarField eta(getEta(x, 0, 0));
     const scalarField u(getU(x, eta, 0, 0));
 
-    outDict.set("h_crest", eta[0] - d_);
-    outDict.set("h_trough", eta[1] - d_);
-    outDict.set("u_crest", u[0]);
-    outDict.set("u_trough", u[1]);
-    outDict.set("steepness", H_/lambda);
-
-    outDict.write(OFstream(outDictName)(), false);
+    os.writeEntry("h_crest", eta[0] - d_);
+    os.writeEntry("h_trough", eta[1] - d_);
+    os.writeEntry("u_crest", u[0]);
+    os.writeEntry("u_trough", u[1]);
+    os.writeEntry("steepness", H_/lambda);
 }
 
 
 void Foam::streamFunctionWave::write(Ostream& os) const
 {
-    // The coefficients must survive a restart with a low writePrecision
-    const int oldPrecision = os.precision();
-    os.precision(max(oldPrecision, 15));
-
     os.writeEntry("H", H_);
     os.writeEntry("d", d_);
     if (omega_ > 0)     // Period is finite
@@ -692,18 +571,10 @@ void Foam::streamFunctionWave::write(Ostream& os) const
     os.writeEntry("lambda", 2*pi/k_);
     os.writeEntry("uType", uType_);
     os.writeEntry("u", u_);
+    os.writeEntry("tolerance", tolerance_);
     os.writeEntry("N", N_);
-    os.writeEntry("nHSteps", nHSteps_);
-    os.writeEntry("g", g_);
-    os.writeEntry("k", k_);
-    os.writeEntry("R", R_);
-    os.writeEntry("uBar", uBar_);
-    os.writeEntry("Q", Q_);
-    // With the compound type List<scalar>, so that a binary stream reads them
-    E_.UList<scalar>::writeEntry("E", os);
-    B_.UList<scalar>::writeEntry("B", os);
-
-    os.precision(oldPrecision);
+    os.writeEntry("error", error_);
+    os.writeEntry("HbyHtop", sigma_);
 }
 
 

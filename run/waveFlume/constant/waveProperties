@@ -26,10 +26,6 @@ left
 
     u               	0;
 
-    N           	35;
-
-    nHSteps       	20;
-
     direction       	( 1 0 0 );
 }
 

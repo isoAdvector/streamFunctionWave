@@ -30,7 +30,8 @@ Class
 Description
     Calculates Fourier coefficients for a stream function theory wave.
 
-    The calculation follows the outline in section 3.1.2 of:
+    The calculation follows Fenton's Fourier approximation method, section
+    3.1.2 of:
 
     \verbatim
         Fenton, J. D. (1999).
@@ -51,6 +52,21 @@ Description
            calculated as for uType 0 and then given in the frame in which it
            moves with celerity lambda/T. The Eulerian mean current and the
            mass transport velocity follow from this.
+
+    The number of Fourier modes follows from the tolerance (default 1e-8):
+    the largest error allowed in the surface elevation relative to H, and in
+    the velocities at the surface and the mean fluid speed relative to the
+    mean fluid speed. The wave is accepted when the solution agrees to half
+    the tolerance with the solution of about 25 % more modes.
+
+    The equations are solved in the least-squares sense on more surface
+    points than modes (streamFunctionWaveSolver), from a guess interpolated
+    in a table of precomputed waves (streamFunctionWaveTable) over the
+    relative depth d/lambda and the relative height H/H_top. H_top is the
+    highest wave of the table, about 1 % below the highest possible wave in
+    deep water and 2-9 % below it in shallow water; higher waves are an
+    error. The table covers d/lambda from 0.03 to 3; deeper water is as
+    deep water, shallower water is tried with a warning.
 
 SourceFiles
     streamFunctionWave.C
@@ -83,6 +99,15 @@ protected:
         //- Number of Fourier modes
         label N_ = 0;
 
+        //- Tolerance of the wave
+        scalar tolerance_ = 1e-8;
+
+        //- Estimated error of the calculated wave
+        scalar error_ = 0;
+
+        //- Relative height H/H_top of the calculated wave
+        scalar sigma_ = 0;
+
         //- Fourier coefficients for velocity field and pressure
         scalarField B_;
 
@@ -99,9 +124,6 @@ protected:
         //- "Eulerian" current, 2 for wave period and "Stokes" current,
         //- 3 for wave length and wave period
         label uType_ = 0;
-
-        //- Number of steps to reach the final wave height
-        label nHSteps_ = 0;
 
         //- Gravitational acceleration
         scalar g_ = 0;
@@ -135,15 +157,6 @@ protected:
             return uType_ == 0 || uType_ == 3;
         }
 
-        //- Newton-Raphson iteration towards the wave of height h
-        void findRoot(scalarField& X, scalar h, scalar lort);
-
-        //- The set of equations to be satisfied by the wave
-        scalarField fun(const scalarField& X, scalar h, scalar lort) const;
-
-        //- Numerical Jacobian of fun()
-        scalarSquareMatrix jac(const scalarField& X, scalar h, scalar lort) const;
-
 
 public:
 
@@ -158,16 +171,12 @@ public:
 
     // Member Functions
 
-        //- True if the dictionary holds calculated Fourier coefficients,
-        //- as written by write()
-        static bool hasCoeffs(const dictionary& waveDict);
-
-        //- Read the wave parameters from the given dictionary. A dictionary
-        //- written by write() gives the calculated wave without calcCoeffs().
+        //- Read the wave parameters from the given dictionary
         void readParmsFromDict(const dictionary& waveDict);
 
-        //- True if the given dictionary describes the same wave as this one
-        bool sameWave(const dictionary& waveDict) const;
+        //- True if the input parameters of this wave and of w are equal.
+        //- The comparison is exact, for parameters read from the same text.
+        bool sameInput(const streamFunctionWave& w) const;
 
         //- Calculate the Fourier coefficients of the wave
         void calcCoeffs();
@@ -207,17 +216,38 @@ public:
             const scalar phi
         ) const;
 
-        //- Gravitational acceleration
-        scalar g() const noexcept { return g_; }
+        // Access
+
+            //- Gravitational acceleration
+            scalar g() const noexcept { return g_; }
+
+            //- Wave height
+            scalar H() const noexcept { return H_; }
+
+            //- Wave number, calculated by calcCoeffs() for period input
+            scalar k() const noexcept { return k_; }
+
+            //- Mean fluid speed in the frame of the wave
+            scalar uBar() const noexcept { return uBar_; }
+
+            //- Volume flow rate per unit span in the frame of the wave
+            scalar Q() const noexcept { return Q_; }
+
+            //- Number of Fourier modes of the calculated wave
+            label N() const noexcept { return N_; }
+
+            //- Estimated error of the calculated wave
+            scalar error() const noexcept { return error_; }
 
         //- Find the x/lambda value where eta = d
         scalar zeroPointPhase() const;
 
-        //- Write the calculated wave to the named dictionary file
+        //- Write the calculated wave, with its Fourier coefficients, to the
+        //- named dictionary file
         void writeDict(const fileName& outDictName) const;
 
-        //- Write the wave parameters and Fourier coefficients as dictionary
-        //- entries, which readParmsFromDict() reads back
+        //- Write the input and the main results of the calculated wave as
+        //- dictionary entries, for information
         void write(Ostream& os) const;
 };
 
